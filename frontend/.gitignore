@@ -1,0 +1,26 @@
+# build output
+.next
+out
+dist
+
+# dependencies
+node_modules
+
+# env
+.env
+.env.local
+.env*.local
+
+# typescript / tooling caches
+*.tsbuildinfo
+.eslintcache
+
+# windows "tree" dumps and other scratch files
+project-tree.txt
+src-tree.txt
+
+# editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db

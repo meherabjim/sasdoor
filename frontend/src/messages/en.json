@@ -1,0 +1,579 @@
+{
+  "navbar": {
+    "home": "HOME",
+    "about": "ABOUT",
+    "features": "FEATURES",
+    "safety": "Safety & Security",
+    "technicalities": "Technicalities",
+    "customizations": "Customizations",
+    "portfolio": "PORTFOLIO",
+    "bookVisit": "Book A Visit!",
+    "design": "Door Design",
+    "estimate": "Get an Estimate"
+  },
+  "footer": {
+    "company": "SAS DOOR",
+    "home": "Home",
+    "portfolio": "Portfolio",
+    "bookVisit": "Book A Visit!",
+    "description": "At SAS DOOR, your security and satisfaction are our top priorities. Trust our expert craftsmanship and personalized solutions to enhance and protect your home.",
+    "office": "Office: 145 Airport Road Super Market, Monipuripara, Tejgaon, Dhaka-1215, Bangladesh",
+    "factory": "Factory: Naaf Center, Khagan, Berulia Savar, Bangladesh",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "copyright": "All rights reserved. Powered By",
+    "facebook": "",
+    "instagram": "",
+    "whatsapp": "",
+    "email": "",
+    "phone": ""
+  },
+  "hero": {
+    "badge": "Premium door solutions",
+    "title": "Designed for lasting style, built for everyday security.",
+    "description": "SAS DOOR brings refined craftsmanship, durable materials, and tailored finishes together to create entrances that look sharp and perform reliably for years.",
+    "bookVisit": "Book A Visit",
+    "portfolio": "View Portfolio",
+    "highlights": [
+      "Custom design consultation",
+      "Precision-fit installations",
+      "Security-first craftsmanship"
+    ],
+    "signature": "Signature entry",
+    "signatureText": "A balanced blend of modern presence and dependable security.",
+    "cards": [
+      {
+        "title": "Tailored fit",
+        "text": "Designed around your opening"
+      },
+      {
+        "title": "Clean finish",
+        "text": "Refined details and proportions"
+      },
+      {
+        "title": "Durable build",
+        "text": "Made to handle daily use"
+      }
+    ]
+  },
+  "highlights": {
+    "title": "What makes us different",
+    "heading": "A more refined way to upgrade your entrance.",
+    "items": [
+      {
+        "title": "Custom finishes",
+        "description": "Choose materials, profiles, and details that match the architecture of your home."
+      },
+      {
+        "title": "Secure build",
+        "description": "Thoughtful construction designed to support safety without sacrificing style."
+      },
+      {
+        "title": "Precision fit",
+        "description": "Measured carefully so each installation feels seamless, solid, and intentional."
+      },
+      {
+        "title": "Expert installation",
+        "description": "Professional workmanship with a clean finish and a smooth final handoff."
+      }
+    ]
+  },
+  "process": {
+    "title": "Our process",
+    "heading": "Clear steps, clean execution, strong results.",
+    "description": "A professional door project should feel organized from the first conversation to the final installation. Our process keeps that path simple and predictable.",
+    "steps": [
+      {
+        "number": "01",
+        "title": "Consult and measure",
+        "text": "We start with the opening, the look you want, and the practical needs your space requires."
+      },
+      {
+        "number": "02",
+        "title": "Design and refine",
+        "text": "Materials, proportions, and finish details are aligned into a clean final direction."
+      },
+      {
+        "number": "03",
+        "title": "Build and install",
+        "text": "The door is crafted, delivered, and installed with care for a polished final result."
+      }
+    ]
+  },
+  "about": {
+    "banner": {
+      "badge": "About SAS Door",
+      "title": "Elevating the look and performance of every entrance.",
+      "description": "SAS Door creates tailored door solutions that balance exceptional craftsmanship, refined design, and dependable security for modern homes.",
+      "imageTitle": "Premium craftsmanship",
+      "imageText": "Thoughtful materials and precise finishes that feel as good as they look."
+    },
+    "story": {
+      "title": "Our story",
+      "heading": "A premium door experience for homes that deserve better",
+      "items": [
+        {
+          "title": "Crafted around your home",
+          "description": "Every project begins with the architecture of your property and the way you want your entrance to feel."
+        },
+        {
+          "title": "Built for longevity",
+          "description": "We focus on dependable materials and careful detailing so the final result holds up beautifully over time."
+        },
+        {
+          "title": "Supported from start to finish",
+          "description": "From consultation to installation, the experience stays calm, informed, and professional."
+        }
+      ]
+    },
+    "values": {
+      "title": "Why clients choose us",
+      "heading": "Professional service rooted in craftsmanship and trust",
+      "items": [
+        {
+          "title": "Integrity",
+          "description": "Transparent guidance and honest recommendations at every step."
+        },
+        {
+          "title": "Excellence",
+          "description": "A refined finish and premium feel in every detail."
+        },
+        {
+          "title": "Reliability",
+          "description": "Dependable service, clear communication, and lasting results."
+        }
+      ]
+    },
+    "contact": {
+      "title": "Let's talk",
+      "heading": "Ready to create a better entryway?",
+      "description": "Reach out to discuss your project, your preferred style, and the right custom door solution for your home.",
+      "button": "Book A Visit"
+    }
+  },
+  "portfolioPreview": {
+    "badge": "Portfolio preview",
+    "title": "Built to look premium from every angle.",
+    "description": "Explore a selection of door styles, finishes, and design details that show how a custom entrance can elevate the full exterior.",
+    "tags": [
+      "Modern minimal",
+      "Warm wood tones",
+      "Secure steel detail",
+      "Clean trim finishes"
+    ],
+    "button": "View all projects",
+    "featured": "Featured style",
+    "featuredText": "A balanced profile with a premium finish and strong visual presence."
+  },
+  "cta": {
+    "badge": "Ready to start?",
+    "title": "Bring a more polished entrance to your home.",
+    "description": "Schedule a visit to talk through your style, security needs, and the right custom solution for your space.",
+    "bookVisit": "Book A Visit",
+    "learnMore": "Learn more"
+  },
+  "safetySecurity": {
+    "hero": {
+      "badge": "Safety & Security",
+      "title": "Security-focused door solutions with a refined finish.",
+      "description": "Explore the features and build details that help every SAS Door entrance feel safer, stronger, and more dependable without losing visual appeal.",
+      "button1": "Schedule Consultation",
+      "button2": "View Portfolio",
+      "imageTitle": "Built for protection",
+      "imageText": "Strong materials and clean installation details designed for peace of mind."
+    },
+    "features": {
+      "title": "Security features",
+      "heading": "Carefully planned details that help protect your home.",
+      "items": [
+        {
+          "title": "Reinforced build",
+          "description": "Durable construction designed to handle regular use while maintaining a premium appearance."
+        },
+        {
+          "title": "Secure locking options",
+          "description": "Hardware choices that support dependable locking and everyday usability."
+        },
+        {
+          "title": "Modern access control",
+          "description": "Smart security-ready solutions that can support fingerprint or digital access systems."
+        },
+        {
+          "title": "Installation care",
+          "description": "Precise fitting and alignment so the final result feels strong, stable, and finished."
+        }
+      ]
+    },
+    "standards": {
+      "title": "Our standards",
+      "heading": "A premium result begins with a disciplined process.",
+      "description": "Safety is more than strength alone. It includes the quality of the fit, the finish, and the reliability of the full installation.",
+      "items": [
+        {
+          "title": "Measured fit",
+          "text": "Each opening is reviewed carefully so the door sits securely and performs properly."
+        },
+        {
+          "title": "Quality hardware",
+          "text": "Selected components support smooth operation and long-term reliability."
+        },
+        {
+          "title": "Clean finishing",
+          "text": "Edges, trims, and details are completed to feel polished and intentional."
+        }
+      ]
+    }
+  },
+  "technicalities": {
+    "hero": {
+      "badge": "Technicalities",
+      "title": "Built around fit, durability, and clean performance.",
+      "description": "From opening dimensions to hardware choices, every technical detail is considered so the finished door feels refined and functions reliably.",
+      "button1": "Book A Consultation",
+      "button2": "Explore Projects",
+      "highlights": [
+        "Precision measurements",
+        "Material and finish planning",
+        "Performance-focused details"
+      ],
+      "cards": [
+        {
+          "title": "Measured fit",
+          "text": "Opening checks and alignment for a clean installation"
+        },
+        {
+          "title": "Secure build",
+          "text": "Strength and stability at every edge and hinge point"
+        },
+        {
+          "title": "Efficient detailing",
+          "text": "Clean finishing and practical hardware selection"
+        }
+      ]
+    },
+    "details": {
+      "badge": "Technical approach",
+      "heading": "A clear technical process helps preserve both beauty and performance.",
+      "items": [
+        {
+          "title": "Frame and opening review",
+          "text": "Each project begins by assessing the opening, structural conditions, and the preferred finish so the installation suits the space perfectly."
+        },
+        {
+          "title": "Hardware compatibility",
+          "text": "Handles, hinges, and locking systems are selected for smooth use, long-term durability, and a refined appearance."
+        },
+        {
+          "title": "Finish and tolerance planning",
+          "text": "The final finish and small tolerances are reviewed carefully so the door feels balanced and complete from every angle."
+        }
+      ],
+      "considered": {
+        "badge": "Considered details",
+        "heading": "Every decision is shaped by how the door will be used every day.",
+        "points": [
+          "Opening dimensions are checked early so the frame and swing feel intentional.",
+          "Materials and seals are selected for longevity, comfort, and weather resistance.",
+          "Final alignment is reviewed so the door closes smoothly and looks balanced."
+        ]
+      }
+    }
+  },
+  "customizations": {
+    "hero": {
+      "badge": "Customizations",
+      "title": "Personalized details that make your entrance feel unmistakably yours.",
+      "description": "Whether you want a warm natural finish, statement hardware, or a bespoke layout, each detail can be shaped around your home and taste.",
+      "button1": "Start Your Design",
+      "button2": "View Technical Details",
+      "highlights": [
+        "Finish and color options",
+        "Hardware and layout choices",
+        "Tailored dimensions"
+      ],
+      "cards": [
+        {
+          "title": "Color & finish",
+          "text": "Natural tones, rich stains, and tailored paint options"
+        },
+        {
+          "title": "Sizing & proportions",
+          "text": "Designed around your opening, architecture, and scale"
+        },
+        {
+          "title": "Hardware details",
+          "text": "Statement handles and secure fixtures that feel intentional"
+        }
+      ]
+    },
+    "options": {
+      "badge": "Personalization options",
+      "heading": "Tailored options allow the design to feel aligned with your home from the first glance.",
+      "items": [
+        {
+          "title": "Finish selection",
+          "text": "Choose from rich wood tones, understated neutrals, and custom color treatments that complement the surrounding interior."
+        },
+        {
+          "title": "Hardware styling",
+          "text": "Select handles, hinges, and accents that support the movement and character of your entryway."
+        },
+        {
+          "title": "Made-to-fit layouts",
+          "text": "Every opening is reviewed so the proportions, swing, and layout feel deliberate and comfortable."
+        }
+      ]
+    },
+    "cta": {
+      "badge": "Plan a tailored visit",
+      "title": "Share your preferences and let’s shape a door that feels right for your space.",
+      "button": "Request a Consultation"
+    }
+  },
+  "bookVisit": {
+    "hero": {
+      "badge": "Book a visit",
+      "title": "Plan a visit for a custom door that feels refined and secure.",
+      "description": "Share a few details about your project and we’ll help shape the right style, finish, and installation plan for your home.",
+      "highlights": [
+        "Personal consultation at your home or showroom",
+        "Clear recommendations for style, hardware, and finish",
+        "Measured approach for secure and precise installation"
+      ],
+      "button1": "Start your request",
+      "button2": "View portfolio",
+      "imageBadge": "Visit ready",
+      "imageText": "We’ll help you choose a door that balances presence, warmth, and daily security."
+    },
+    "steps": {
+      "badge": "Simple process",
+      "heading": "A smooth journey from your first conversation to installation.",
+      "items": [
+        {
+          "number": "01",
+          "title": "Share your requirements",
+          "text": "Tell us about your space, preferred style, and what you expect from your new door."
+        },
+        {
+          "number": "02",
+          "title": "Discuss design options",
+          "text": "We review materials, finishes, hardware, and suitable solutions for your home."
+        },
+        {
+          "number": "03",
+          "title": "Confirm and install",
+          "text": "After final approval, we complete the measurement, production, and installation process."
+        }
+      ]
+    },
+    "details": {
+      "badge": "Visit details",
+      "heading": "Everything is planned carefully before your final installation.",
+      "items": [
+        {
+          "title": "Personal consultation",
+          "text": "Our team understands your requirements and recommends the right design direction."
+        },
+        {
+          "title": "Material guidance",
+          "text": "Choose suitable finishes, colours, and hardware based on your home's style."
+        },
+        {
+          "title": "Installation planning",
+          "text": "Measurements and technical details are reviewed for a smooth final installation."
+        }
+      ],
+      "contact": {
+        "title": "Ready to start your project?",
+        "text": "Book a visit today and let our experts help create the right entrance solution for your home."
+      }
+    }
+  },
+  "portfolioHero": {
+    "badge": "Portfolio",
+    "title": "A refined collection of custom doors and signature finishes.",
+    "description": "Discover a selection of projects shaped by premium materials, thoughtful proportions, and installations designed to feel timeless.",
+    "button": "Request a consultation",
+    "featured": "Featured project",
+    "featuredText": "A bold, refined entry designed with balance, warmth, and character."
+  },
+  "auth": {
+    "loginBadge": "Welcome back",
+    "loginTitle": "Login",
+    "email": "Email",
+    "password": "Password",
+    "login": "Login",
+    "loggingIn": "Logging in...",
+    "noAccount": "No account?",
+    "register": "Register",
+    "registerBadge": "Create account",
+    "registerTitle": "Register",
+    "registerDescription": "Create your SAS Door account.",
+    "fullName": "Full name",
+    "phoneNumber": "Phone number",
+    "createAccount": "Create account",
+    "creating": "Creating...",
+    "alreadyRegistered": "Already registered?",
+    "registrationFailed": "Registration failed",
+    "loginFailed": "Login failed"
+  },
+  "account": {
+    "myAccount": "My Account",
+    "dashboard": "Dashboard",
+    "orders": "My Door Orders",
+    "profile": "My Profile",
+    "logout": "Logout",
+    "loading": "Loading...",
+    "welcome": "Welcome",
+    "dashboardDescription": "Manage your account information and keep your profile up to date.",
+    "email": "Email",
+    "phone": "Phone",
+    "role": "Role",
+    "user": "SAS Door User",
+    "notAvailable": "Not available",
+    "notAdded": "Not added",
+    "profileTitle": "Profile information",
+    "profileIntro": "Update your name and phone number from your profile.",
+    "editProfile": "Edit Profile",
+    "accountSettings": "Account settings",
+    "profileDescription": "Update your name and phone number.",
+    "fullName": "Full name",
+    "phoneNumber": "Phone number",
+    "saveChanges": "Save Changes",
+    "profileSavedLocal": "Profile saved locally. A self-profile update API is still required for permanent server storage."
+  },
+  "admin": {
+    "adminArea": "Admin / Super Admin",
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "roles": "Roles",
+    "permissions": "Permissions",
+    "rolePermissions": "Role Permissions",
+    "logout": "Logout",
+    "loading": "Loading...",
+    "forbidden": "You do not have permission to access the admin area.",
+    "manageDescription": "Manage users, roles, permissions and access control.",
+    "openManagement": "Open management",
+    "total": "Total",
+    "refresh": "Refresh",
+    "create": "Create",
+    "update": "Update",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "actions": "Actions",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "phone": "Phone",
+    "password": "Password",
+    "gender": "Gender",
+    "roleName": "Role name",
+    "description": "Description",
+    "permissionSlugs": "Permission slugs, comma separated",
+    "permissionName": "Permission name",
+    "slug": "Slug",
+    "module": "Module",
+    "createUser": "Create user",
+    "updateUser": "Update user",
+    "createRole": "Create role",
+    "updateRole": "Update role",
+    "createPermission": "Create permission",
+    "updatePermission": "Update permission",
+    "selectRole": "Select role",
+    "selectPermissions": "Select permissions",
+    "assignedPermissions": "Assigned permissions",
+    "get": "Get",
+    "assign": "Assign",
+    "sync": "Sync",
+    "remove": "Remove",
+    "loadFailed": "Could not load data",
+    "requestFailed": "Request failed",
+    "empty": "No data found",
+    "confirmDelete": "Are you sure you want to delete this item?",
+    "saved": "Saved successfully",
+    "deleted": "Deleted successfully",
+    "created": "Created successfully",
+    "updated": "Updated successfully"
+  },
+  "portfolioProjects": {
+    "badge": "Featured work",
+    "title": "A collection of tailored entrances and premium finishes.",
+    "description": "Each project is designed around the space, the architecture, and the way the home should feel at first glance.",
+    "galleryTitle": "Our Gallery"
+  },
+  "designer": {
+    "badge": "Door Designer",
+    "title": "Design your own door",
+    "description": "Choose the size, wood, colour and carving. See the door and its price instantly.",
+    "type": "Door type",
+    "single": "Single",
+    "double": "Double",
+    "height": "Height (ft)",
+    "width": "Width (ft)",
+    "wood": "Wood",
+    "doorColor": "Door colour",
+    "carvingColor": "Carving colour",
+    "withFrame": "With frame (chowkath)",
+    "withFitting": "With fitting",
+    "carving": "Choose a carving",
+    "plain": "Plain",
+    "price": "Estimated price",
+    "cft": "Wood needed",
+    "order": "I like it, place an order",
+    "noStock": "Wood is not available right now. Please call us.",
+    "orderTitle": "Your details",
+    "name": "Full name",
+    "phone": "Phone number",
+    "address": "Address",
+    "note": "Anything else? (delivery date, notes)",
+    "submit": "Send request",
+    "sending": "Sending...",
+    "success": "Request sent! Estimate no",
+    "successNote": "We will call you soon to confirm.",
+    "disclaimer": "Price is an estimate. Final price is confirmed after measurement.",
+    "payment": "Payment",
+    "payInfo": "You can pay an advance now by bKash or Nagad and enter the transaction ID. We will verify it and confirm your order.",
+    "payNow": "Paying now (advance)",
+    "method": "Payment method",
+    "cashOnVisit": "Pay later / on visit",
+    "trxId": "Transaction ID",
+    "total": "Total",
+    "due": "Due",
+    "photoTile": "Your own photo",
+    "photoTileSub": "Carving from a picture",
+    "photoTitle": "A carving from your own photo",
+    "photoSub": "Seen a door you liked? Photograph the carving and we will put it on yours.",
+    "photoStep1": "Pick a photo",
+    "photoStep2": "Mark the corners",
+    "photoStep3": "On your door",
+    "photoPick": "Photo of a door, or of a carving",
+    "photoTip": "Light from the side works far better than a straight-on flash. A carving is read through the shadow in its grooves, and a flat front light leaves no shadow to read.",
+    "photoWhat": "What is in the photo",
+    "photoWhole": "A whole door",
+    "photoPattern": "Just the pattern",
+    "photoCorners": "Drag the four dots so they hold the carved area only. The tighter the box, the cleaner the carving comes out.",
+    "photoBack": "Back",
+    "photoRead": "Read the carving",
+    "photoReading": "Reading the photo…",
+    "photoShapes": "shapes found",
+    "photoNone": "nothing found",
+    "photoNothing": "Nothing came out of this photo. Open Adjust and raise the detail, or try a photo with clearer shadows.",
+    "photoAdjust": "Adjust",
+    "photoRedo": "Change corners",
+    "photoDetail": "Detail",
+    "photoSpecks": "Drop specks",
+    "photoSmooth": "Smoothing",
+    "photoNotFinal": "The price we show for your own carving is an estimate only — nobody has priced this exact carving yet. Send the request and we will check it and give you the final price.",
+    "photoCancel": "Cancel",
+    "photoUse": "Put it on my door",
+    "photoChosen": "Your carving",
+    "photoChange": "Change photo",
+    "photoRemove": "Remove",
+    "estimatedLine": "estimate",
+    "estimatedNote": "One line here is an estimate: your own carving has never been priced. Everything else — wood, colour, frame, labour — is our fixed rate and will not change. Send the request and we will send you the final price for the carving.",
+    "askFinal": "Get the final price",
+    "successQuote": "We will check your carving and send you the final price. You will see it on your own page, and you can place the order from there."
+  }
+}
