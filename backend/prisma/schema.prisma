@@ -1,0 +1,606 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================= ENUMS =================
+
+enum Role {
+  SUPER_ADMIN
+  USER
+}
+
+enum SourceType {
+  LOCAL
+  FOREIGN
+}
+
+/// What kind of supplier this is, for the menu and the form.
+/// OWN = our own factory. Its wood still lands in the LOCAL stock pool,
+/// because `SourceType` is also the stock key and splitting it would make
+/// "our teak" and "bought teak" two separate stocks with two prices.
+enum SupplierKind {
+  LOCAL
+  INTERNATIONAL
+  OWN
+}
+
+/// How the quantity was typed in on the purchase form. Storage is always CFT.
+enum MeasureMode {
+  CFT
+  FT_IN
+  INCH
+  GIRTH
+  KG
+}
+
+/// BUILTIN = drawn by lib/nokshi/render.js. UPLOADED = a traced SVG we stored.
+enum DesignOrigin {
+  BUILTIN
+  UPLOADED
+}
+
+/// PRIVATE = only inside the estimate it was made for. LIBRARY = in the gallery for everyone.
+enum DesignVisibility {
+  PRIVATE
+  LIBRARY
+}
+
+enum WoodUse {
+  DOOR
+  FRAME
+  BOTH
+}
+
+enum DoorType {
+  SINGLE
+  DOUBLE
+}
+
+enum ColorType {
+  DOOR
+  DESIGN
+}
+
+enum LabourCategory {
+  DOOR
+  POLISH
+  FRAME
+  FITTING
+  DELIVERY
+  OTHER
+}
+
+enum BatchStatus {
+  ACTIVE
+  WAITING
+  DONE
+}
+
+enum EstimateStatus {
+  NEW
+  /// The customer asked for a real price on a carving of their own, and the shop has
+  /// sent one back. It sits here until the customer accepts it, which makes it an order.
+  QUOTED
+  CONFIRMED
+  IN_PRODUCTION
+  READY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum EstimateSource {
+  ADMIN
+  WEBSITE
+}
+
+enum LineType {
+  WOOD
+  DOOR_COLOR
+  DESIGN
+  DESIGN_COLOR
+  LABOUR
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  BKASH
+  NAGAD
+  LC
+  OTHER
+}
+
+/// PAYMENT = paying off what we already owe. ADVANCE = money given before the wood arrives.
+enum SupplierPaymentType {
+  PAYMENT
+  ADVANCE
+}
+
+enum PriceItemType {
+  WOOD_STOCK
+  WOOD_MARKET
+  COLOR
+  DESIGN
+  DESIGN_LABOUR
+  LABOUR
+}
+
+enum RequestStatus {
+  NEW
+  CONTACTED
+  DONE
+  CANCELLED
+}
+
+// ================= USERS =================
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  email        String?    @unique
+  phone        String?    @unique
+  passwordHash String
+  role         Role       @default(USER)
+  address      String?
+  active       Boolean    @default(true)
+  customer     Customer?
+  estimates    Estimate[] @relation("EstimateCreatedBy")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Customer {
+  id               Int                @id @default(autoincrement())
+  name             String
+  phone            String             @unique
+  address          String?
+  note             String?
+  userId           Int?               @unique
+  user             User?              @relation(fields: [userId], references: [id])
+  estimates        Estimate[]
+  bookVisitRequest BookVisitRequest[]
+  notifications    Notification[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+// ================= SETTINGS =================
+
+model Setting {
+  id                   Int      @id @default(1)
+  doorThicknessInch    Decimal  @default(1.5) @db.Decimal(6, 2)
+  frameWidthInch       Decimal  @default(5) @db.Decimal(6, 2)
+  frameThicknessInch   Decimal  @default(2.5) @db.Decimal(6, 2)
+  wastagePercent       Decimal  @default(10) @db.Decimal(6, 2)
+  minHeightFt          Decimal  @default(5) @db.Decimal(6, 2)
+  maxHeightFt          Decimal  @default(10) @db.Decimal(6, 2)
+  singleMinWidthFt     Decimal  @default(2) @db.Decimal(6, 2)
+  singleMaxWidthFt     Decimal  @default(4.5) @db.Decimal(6, 2)
+  doubleMinWidthFt     Decimal  @default(4) @db.Decimal(6, 2)
+  doubleMaxWidthFt     Decimal  @default(8) @db.Decimal(6, 2)
+  bigDoorSqftPerLeaf   Decimal  @default(24) @db.Decimal(8, 2)
+  bigDoorExtraPercent  Decimal  @default(20) @db.Decimal(6, 2)
+  profitWoodPercent    Decimal  @default(10) @db.Decimal(6, 2)
+  profitColorPercent   Decimal  @default(25) @db.Decimal(6, 2)
+  profitDesignPercent  Decimal  @default(25) @db.Decimal(6, 2)
+  profitLabourPercent  Decimal  @default(20) @db.Decimal(6, 2)
+  companyName          String   @default("SAS DOOR")
+  companyPhone         String?
+  companyAddress       String?
+  companyLogo          String?
+  updatedAt            DateTime @updatedAt
+}
+
+// ================= WOOD & SUPPLIER =================
+
+model WoodType {
+  id                Int          @id @default(autoincrement())
+  nameEn            String
+  nameBn            String
+  source            SourceType
+  countries         String[]
+  use               WoodUse      @default(BOTH)
+  marketPricePerCft Decimal      @default(0) @db.Decimal(12, 2)
+  /// kg per CFT. Only needed if you ever enter a purchase by weight.
+  densityKgPerCft   Decimal?     @db.Decimal(8, 2)
+  active            Boolean      @default(true)
+  sortOrder         Int          @default(0)
+  purchases         WoodPurchase[]
+  stocks            WoodStock[]
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([nameEn, source])
+}
+
+model Supplier {
+  id          Int               @id @default(autoincrement())
+  companyName String
+  phone       String?
+  address     String?
+  source      SourceType        @default(LOCAL)
+  kind        SupplierKind      @default(LOCAL)
+  country     String            @default("Bangladesh")
+  active      Boolean           @default(true)
+  purchases   WoodPurchase[]
+  payments    SupplierPayment[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model WoodPurchase {
+  id             Int           @id @default(autoincrement())
+  supplierId     Int?
+  supplier       Supplier?     @relation(fields: [supplierId], references: [id])
+  woodTypeId     Int
+  woodType       WoodType      @relation(fields: [woodTypeId], references: [id])
+  source         SourceType
+  country        String
+  isOpeningStock Boolean       @default(false)
+  invoiceNo      String?
+  lcNo           String?
+  purchaseDate   DateTime      @default(now())
+  quantityCft    Decimal       @db.Decimal(12, 3)
+  /// How it was typed in, and the raw rows, so the CFT can be traced back later.
+  measureMode    MeasureMode   @default(CFT)
+  measureRaw     Json?
+  pricePerCft    Decimal       @db.Decimal(12, 2)
+  woodCost       Decimal       @db.Decimal(14, 2)
+  transportCost  Decimal       @default(0) @db.Decimal(12, 2)
+  otherCost      Decimal       @default(0) @db.Decimal(12, 2)
+  totalCost      Decimal       @db.Decimal(14, 2)
+  costPerCft     Decimal       @db.Decimal(12, 2)
+  paidAmount     Decimal       @default(0) @db.Decimal(14, 2)
+  paymentMethod  PaymentMethod?
+  note           String?
+  batch          StockBatch?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model SupplierPayment {
+  id         Int                 @id @default(autoincrement())
+  supplierId Int
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  amount     Decimal             @db.Decimal(14, 2)
+  type       SupplierPaymentType @default(PAYMENT)
+  method     PaymentMethod       @default(CASH)
+  paidAt     DateTime            @default(now())
+  note       String?
+  createdAt  DateTime            @default(now())
+}
+
+model WoodStock {
+  id                 Int          @id @default(autoincrement())
+  woodTypeId         Int
+  woodType           WoodType     @relation(fields: [woodTypeId], references: [id])
+  source             SourceType
+  profitPercent      Decimal      @default(10) @db.Decimal(6, 2)
+  activeCostPerCft   Decimal      @default(0) @db.Decimal(12, 2)
+  sellingPricePerCft Decimal      @default(0) @db.Decimal(12, 2)
+  /// True when the shop typed the selling price in by hand. It is then kept as a real
+  /// number instead of being re-derived from the profit % on the next purchase.
+  sellLocked         Boolean      @default(false)
+  batches            StockBatch[]
+  estimates          Estimate[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@unique([woodTypeId, source])
+}
+
+model StockBatch {
+  id              Int          @id @default(autoincrement())
+  woodStockId     Int
+  woodStock       WoodStock    @relation(fields: [woodStockId], references: [id], onDelete: Cascade)
+  purchaseId      Int?         @unique
+  purchase        WoodPurchase? @relation(fields: [purchaseId], references: [id])
+  country         String
+  quantityCft     Decimal      @db.Decimal(12, 3)
+  remainingCft    Decimal      @db.Decimal(12, 3)
+  originalCost    Decimal      @db.Decimal(12, 2)
+  currentCost     Decimal      @db.Decimal(12, 2)
+  status          BatchStatus
+  usages          StockUsage[]
+  receivedAt      DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model StockUsage {
+  id           Int        @id @default(autoincrement())
+  estimateId   Int
+  estimate     Estimate   @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  batchId      Int
+  batch        StockBatch @relation(fields: [batchId], references: [id])
+  cft          Decimal    @db.Decimal(12, 3)
+  originalCost Decimal    @db.Decimal(12, 2)
+  returned     Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+// ================= PRICE LISTS =================
+
+model Color {
+  id            Int       @id @default(autoincrement())
+  type          ColorType
+  nameEn        String
+  nameBn        String
+  colorCode     String
+  isToneOnTone  Boolean   @default(false)
+  costSingle    Decimal   @default(0) @db.Decimal(12, 2)
+  costDouble    Decimal   @default(0) @db.Decimal(12, 2)
+  profitPercent Decimal   @default(25) @db.Decimal(6, 2)
+  sellSingle    Decimal   @default(0) @db.Decimal(12, 2)
+  sellDouble    Decimal   @default(0) @db.Decimal(12, 2)
+  suggestions   String[]  // for DOOR colors: nameEn list of suggested DESIGN colors
+  /// How many people and how many days the colour work on this door takes.
+  /// Left at 0 it is pure material and no job appears on the work sheet, which is how a
+  /// shop that prices painting through its Labour rates wants it. Set it and the colour
+  /// becomes a job of its own that somebody is put on.
+  workersSingle Int       @default(0)
+  workersDouble Int       @default(0)
+  daysSingle    Int       @default(0)
+  daysDouble    Int       @default(0)
+  active        Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([type, nameEn])
+}
+
+model DoorDesign {
+  id                  Int      @id @default(autoincrement())
+  key                 String   @unique // frontend renderer key (royal, lotus...) or "custom"
+  nameEn              String
+  nameBn              String
+  noteEn              String?
+  noteBn              String?
+  svgUrl              String?  // uploaded SVG for custom designs
+  /// How many workers and how many days this needs. Filled in once here, then shown on
+  /// every estimate for the workshop. Display only - no price is calculated from it.
+  workersSingle       Int      @default(0)
+  workersDouble       Int      @default(0)
+  daysSingle          Int      @default(0)
+  daysDouble          Int      @default(0)
+  origin              DesignOrigin     @default(BUILTIN)
+  visibility          DesignVisibility @default(LIBRARY)
+  allowDouble         Boolean  @default(true)
+  costSingle          Decimal  @default(0) @db.Decimal(12, 2)
+  costDouble          Decimal  @default(0) @db.Decimal(12, 2)
+  profitPercent       Decimal  @default(25) @db.Decimal(6, 2)
+  sellSingle          Decimal  @default(0) @db.Decimal(12, 2)
+  sellDouble          Decimal  @default(0) @db.Decimal(12, 2)
+  labourCostSingle    Decimal  @default(0) @db.Decimal(12, 2)
+  labourCostDouble    Decimal  @default(0) @db.Decimal(12, 2)
+  labourProfitPercent Decimal  @default(20) @db.Decimal(6, 2)
+  labourSellSingle    Decimal  @default(0) @db.Decimal(12, 2)
+  labourSellDouble    Decimal  @default(0) @db.Decimal(12, 2)
+  active              Boolean  @default(true)
+  sortOrder           Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model LabourRate {
+  id            Int            @id @default(autoincrement())
+  nameEn        String
+  nameBn        String
+  category      LabourCategory
+  costSingle    Decimal        @default(0) @db.Decimal(12, 2)
+  costDouble    Decimal        @default(0) @db.Decimal(12, 2)
+  profitPercent Decimal        @default(20) @db.Decimal(6, 2)
+  sellSingle    Decimal        @default(0) @db.Decimal(12, 2)
+  sellDouble    Decimal        @default(0) @db.Decimal(12, 2)
+  /// How many workers and how many days this needs. Filled in once here, then shown on
+  /// every estimate for the workshop. Display only - no price is calculated from it.
+  workersSingle       Int      @default(0)
+  workersDouble       Int      @default(0)
+  daysSingle          Int      @default(0)
+  daysDouble          Int      @default(0)
+  active        Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model PriceHistory {
+  id        Int           @id @default(autoincrement())
+  itemType  PriceItemType
+  itemId    Int
+  itemName  String
+  oldCost   Decimal?      @db.Decimal(12, 2)
+  newCost   Decimal?      @db.Decimal(12, 2)
+  oldSell   Decimal?      @db.Decimal(12, 2)
+  newSell   Decimal?      @db.Decimal(12, 2)
+  note      String?
+  changedAt DateTime      @default(now())
+
+  @@index([itemType, itemId])
+}
+
+// ================= ESTIMATES =================
+
+model Estimate {
+  id               Int              @id @default(autoincrement())
+  estimateNo       String           @unique
+  customerId       Int
+  customer         Customer         @relation(fields: [customerId], references: [id])
+  createdById      Int?
+  createdBy        User?            @relation("EstimateCreatedBy", fields: [createdById], references: [id])
+  source           EstimateSource   @default(ADMIN)
+  status           EstimateStatus   @default(NEW)
+  doorType         DoorType
+  heightFt         Decimal          @db.Decimal(6, 2)
+  widthFt          Decimal          @db.Decimal(6, 2)
+  thicknessInch    Decimal          @db.Decimal(6, 2)
+  withFrame        Boolean          @default(false)
+  withFitting      Boolean          @default(false)
+  withDelivery     Boolean          @default(false)
+  woodStockId      Int
+  woodStock        WoodStock        @relation(fields: [woodStockId], references: [id])
+  woodName         String
+  doorColorId      Int?
+  doorColorName    String?
+  doorColorCode    String?
+  designId         Int?
+  designKey        String?
+  designName       String?
+  designSvgUrl     String?
+  designColorId    Int?
+  designColorName  String?
+  designColorCode  String?
+  doorCft          Decimal          @db.Decimal(10, 3)
+  frameCft         Decimal          @db.Decimal(10, 3)
+  totalCft         Decimal          @db.Decimal(10, 3)
+  totalCost        Decimal          @db.Decimal(14, 2)
+  totalSell        Decimal          @db.Decimal(14, 2)
+  discount         Decimal          @default(0) @db.Decimal(14, 2)
+  grandTotal       Decimal          @db.Decimal(14, 2)
+  paidAmount       Decimal          @default(0) @db.Decimal(14, 2)
+  note             String?
+  /**
+   * A carving the customer traced from their own photo on the website.
+   *
+   * It is kept on the estimate itself rather than as a DoorDesign row, because at this
+   * point nobody has decided it is worth keeping: the website would otherwise be able to
+   * write rows into the shop's carving gallery, and every abandoned request would leave
+   * one behind. The SVG is small, it is sanitised on the way in, and if the shop likes it
+   * the review screen promotes it into a real carving with one press.
+   */
+  customDesignSvg  String?
+  customDesignName String?
+  notifications    Notification[]
+  /**
+   * True while the price on this estimate is not one the shop stands behind.
+   *
+   * A carving from a photo has never been priced by anyone: the website puts an estimate
+   * against it so the customer sees a number, and says plainly that it is an estimate.
+   * The shop then reviews it and sends a real price, which clears this.
+   */
+  needsQuote       Boolean          @default(false)
+  quotedAt         DateTime?
+  lines            EstimateLine[]
+  payments         EstimatePayment[]
+  usages           StockUsage[]
+  confirmedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model EstimateLine {
+  id         Int      @id @default(autoincrement())
+  estimateId Int
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  type       LineType
+  name       String
+  quantity   Decimal  @default(1) @db.Decimal(10, 3)
+  unitCost   Decimal  @db.Decimal(12, 2)
+  unitSell   Decimal  @db.Decimal(12, 2)
+  cost       Decimal  @db.Decimal(14, 2)
+  sell       Decimal  @db.Decimal(14, 2)
+  sortOrder  Int      @default(0)
+
+  /// How many people and how many days this job was planned to take, copied off the price
+  /// list the day the estimate was made. Frozen on purpose: change a rate next month and
+  /// this order still says what was agreed. Never part of a price.
+  workers    Int       @default(0)
+  days       Int       @default(0)
+  /// Who is doing it, and where it has got to. Only the work lines ever carry these -
+  /// nobody is assigned to a plank of wood.
+  workerId   Int?
+  worker     Worker?   @relation(fields: [workerId], references: [id])
+  startedAt  DateTime?
+  doneAt     DateTime?
+
+  @@index([workerId])
+}
+
+/// A person in the workshop. Not a login - carpenters do not sign in to anything; this is
+/// the shop's own list of who it can put on a job.
+model Worker {
+  id        Int            @id @default(autoincrement())
+  name      String
+  phone     String?
+  /// What they do. This is what the automatic hand-out matches on when an order is
+  /// confirmed: a polish line goes to a polisher, not to whoever happens to be first.
+  skill     LabourCategory @default(OTHER)
+  note      String?
+  active    Boolean        @default(true)
+  lines     EstimateLine[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+/// Something the shop told a customer about their own order.
+///
+/// Kept as a row rather than fired and forgotten, so the customer's page can show what they
+/// were told and when, and so a text message that failed to send is still visible to them.
+model Notification {
+  id         Int       @id @default(autoincrement())
+  customerId Int
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  estimateId Int?
+  estimate   Estimate? @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  /// Both languages are written at the time, because which one to show is the reader's choice.
+  titleEn    String
+  titleBn    String
+  bodyEn     String
+  bodyBn     String
+  readAt     DateTime?
+  /// When the text message actually left, if an SMS gateway is configured at all.
+  smsSentAt  DateTime?
+  smsError   String?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId, createdAt])
+}
+
+model EstimatePayment {
+  id         Int           @id @default(autoincrement())
+  estimateId Int
+  estimate   Estimate      @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  amount     Decimal       @db.Decimal(14, 2)
+  method     PaymentMethod @default(CASH)
+  paidAt     DateTime      @default(now())
+  note       String?
+  createdAt  DateTime      @default(now())
+}
+
+// ================= WEBSITE =================
+
+model SiteContent {
+  id        Int      @id @default(autoincrement())
+  page      String
+  section   String
+  key       String
+  textEn    String?
+  textBn    String?
+  image     String?
+  visible   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([page, section, key])
+}
+
+model BookVisitRequest {
+  id            Int           @id @default(autoincrement())
+  name          String
+  phone         String
+  address       String?
+  preferredDate DateTime?
+  note          String?
+  customerId    Int?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  status        RequestStatus @default(NEW)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}

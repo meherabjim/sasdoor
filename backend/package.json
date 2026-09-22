@@ -1,0 +1,43 @@
+{
+  "name": "sasdoor-backend",
+  "version": "1.0.0",
+  "description": "SAS DOOR ERP API",
+  "main": "dist/server.js",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "_comment_dev": "generate first: node_modules survives every project update, so a client generated from an older schema would otherwise stay there for ever",
+    "dev": "prisma generate && tsx watch src/server.ts",
+    "build": "prisma generate && tsc",
+    "start": "node dist/server.js",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset --force",
+    "db:studio": "prisma studio",
+    "setup": "prisma migrate deploy && prisma generate && prisma db seed",
+    "set-admin": "tsx prisma/setAdmin.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.18.0",
+    "prisma": "^6.19.3",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
