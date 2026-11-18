@@ -76,13 +76,21 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
    * said yes - but no wood moves and no work goes out until you confirm it, so it is worth a
    * number on the link rather than a discovery three days later.
    */
-  const fresh = useLoad<{ id: number }[]>("/api/admin/estimates?scope=orders&source=WEBSITE&status=NEW");
+  // Any website order nobody has opened yet - a gallery door ordered straight off the site,
+  // or a customer's own carving they accepted the price for (that one arrives already
+  // CONFIRMED, which the old "status NEW" count never saw). Opening the order clears it.
+  const fresh = useLoad<{ id: number }[]>("/api/admin/estimates?scope=orders&unseen=1");
   const unopened = fresh.data?.length ?? 0;
   // The sidebar is never remounted, so without this the badge would show the count from
   // whenever the tab was opened - still nagging about requests that were dealt with an
   // hour ago. Re-counted on every page change, which is when it could have changed.
-  const reloadWeb = web.reload, reloadFresh = fresh.reload;
+  const reloadWeb = web.refresh, reloadFresh = fresh.refresh;
   useEffect(() => { reloadWeb(); reloadFresh(); }, [pathname, reloadWeb, reloadFresh]);
+  // ...and every minute, because a customer can order or accept while you sit on one page.
+  useEffect(() => {
+    const id = window.setInterval(() => { reloadWeb(); reloadFresh(); }, 60_000);
+    return () => window.clearInterval(id);
+  }, [reloadWeb, reloadFresh]);
 
   const link = (href: string, label: string, Icon: Item["icon"], exact = false, indent = true, badge = 0) => {
     const active = exact ? pathname === href : pathname.startsWith(href);

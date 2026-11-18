@@ -21,6 +21,10 @@ import workers from "./routes/workers.routes";
 
 const app = express();
 app.use(cors({ origin: env.corsOrigins, credentials: true }));
+// A website order can carry the photo a custom carving was traced from (shrunk in the
+// browser to a few hundred KB, as base64). That one route gets room for it; everything
+// else keeps the tighter limit.
+app.use("/api/public/orders", express.json({ limit: "5mb" }));
 app.use(express.json({ limit: "2mb" }));
 // Uploaded files are user content served from this origin. `sandbox` stops an SVG
 // opened directly from running anything; `nosniff` stops a .png being read as HTML.

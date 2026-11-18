@@ -7,6 +7,7 @@ import { n, r2 } from "../lib/money";
 import { calculateEstimate } from "../lib/estimateCalc";
 import { estimateCarving } from "../lib/carvingEstimate";
 import { sanitizeSvg } from "../lib/svgSanitize";
+import { removeCustomerPhoto } from "../lib/customerPhoto";
 import { consumeForEstimate, returnForEstimate, stockAvailable } from "../lib/stockService";
 import { assignWork, releaseWork } from "../lib/assignWork";
 import { Message, MSG, notify, sendSms } from "../lib/notify";
@@ -27,15 +28,17 @@ type DoorInput = z.infer<typeof doorInput>;
 /**
  * A carving the customer traced from their own photo on the website.
  *
- * Only the drawing and the two measurements the tracer produced come across. No price:
- * that is worked out here, from the shop's own gallery, because a price arriving from a
- * browser is a price the customer could have typed.
+ * Only the drawing and the measurements the tracer produced come across. No price: that is
+ * worked out here, from the shop's own gallery, because a price arriving from a browser is
+ * a price the customer could have typed.
  */
 export const customCarving = z.object({
   svg: z.string().min(20).max(400_000),
   name: z.string().trim().max(60).nullish(),
   shapes: z.coerce.number().int().min(1).max(5000),
   coverage: z.coerce.number().min(0).max(1),
+  /** Share of the carving's area that is cut (0..1). Optional: pages older than it send none. */
+  density: z.coerce.number().min(0).max(1).nullish(),
 });
 export type CustomCarving = z.infer<typeof customCarving>;
 
@@ -47,12 +50,15 @@ export type CustomCarving = z.infer<typeof customCarving>;
  * screen) treats it exactly like any other, and nothing has to learn a special case.
  */
 export async function withCustomCarving(db: Tx, calc: Awaited<ReturnType<typeof quote>>["calc"], c: CustomCarving, doubleDoor: boolean, name: string) {
-  const est = await estimateCarving(db, c.shapes, c.coverage, doubleDoor);
+  const est = await estimateCarving(db, c.shapes, c.density, doubleDoor);
   if (!est.total) return { calc, est };
-  const add = (type: "DESIGN" | "LABOUR", label: string, sell: number) =>
-    calc.lines.push({ type, name: label, quantity: 1, unitCost: 0, unitSell: r2(sell), cost: 0, sell: r2(sell), workers: 0, days: 0 });
+  const add = (type: "DESIGN" | "LABOUR", label: string, sell: number, workers = 0, days = 0) =>
+    calc.lines.push({ type, name: label, quantity: 1, unitCost: 0, unitSell: r2(sell), cost: 0, sell: r2(sell), workers, days });
   add("DESIGN", `Carving: ${name} (estimate)`, est.carving);
-  add("LABOUR", `Carving labour: ${name} (estimate)`, est.labour);
+  // The estimated crew rides on the labour line, where a gallery carving's crew sits too.
+  // Review & price fills its boxes from these two lines, so the admin starts from the
+  // estimate instead of from blank boxes.
+  add("LABOUR", `Carving labour: ${name} (estimate)`, est.labour, est.workers, est.days);
   calc.totalSell = r2(calc.totalSell + est.total);
   return { calc, est };
 }
@@ -87,14 +93,21 @@ export async function quote(db: Tx, i: DoorInput) {
  */
 async function nextNo(tx: Tx, attempt = 0) {
   const y = new Date().getFullYear();
-  const count = await tx.estimate.count({ where: { estimateNo: { startsWith: `SAS-${y}-` } } });
-  return `SAS-${y}-${String(count + 1 + attempt).padStart(4, "0")}`;
+  const prefix = `SAS-${y}-`;
+  // The highest number used, not how many rows there are: estimates can be deleted, and
+  // after a delete the count points at a number that is still taken, so every new estimate
+  // would clash until the retries ran out.
+  const rows = await tx.estimate.findMany({ where: { estimateNo: { startsWith: prefix } }, select: { estimateNo: true } });
+  const last = rows.reduce((m, r) => Math.max(m, Number(r.estimateNo.slice(prefix.length)) || 0), 0);
+  return `${prefix}${String(last + 1 + attempt).padStart(4, "0")}`;
 }
 
 /** Create estimate with locked lines; shared by admin and website order */
 export async function createEstimate(i: DoorInput & { customer: { name: string; phone: string; address?: string | null }; note?: string | null; discount?: number; advance?: number; advanceMethod?: string; source: "ADMIN" | "WEBSITE"; userId?: number; custom?: CustomCarving | null;
   /** The owner made this themselves, so there is nobody to wait for a price from. */
-  skipReview?: boolean }, attempt = 0): Promise<Awaited<ReturnType<typeof makeEstimate>>> {
+  skipReview?: boolean;
+  /** The saved photo the custom carving was traced from (see lib/customerPhoto.ts). */
+  customDesignSourceUrl?: string | null }, attempt = 0): Promise<Awaited<ReturnType<typeof makeEstimate>>> {
   try {
     return await makeEstimate(i, attempt);
   } catch (err) {
@@ -142,6 +155,8 @@ async function makeEstimate(i: Parameters<typeof createEstimate>[0], attempt: nu
         doorCft: q.calc.doorCft, frameCft: q.calc.frameCft, totalCft: q.calc.totalCft,
         totalCost: q.calc.totalCost, totalSell: q.calc.totalSell, discount, grandTotal, paidAmount: advance, note: i.note,
         customDesignSvg: customSvg, customDesignName: customName, needsQuote,
+        // the photo only belongs here when the carving it came with was kept
+        customDesignSourceUrl: customSvg ? i.customDesignSourceUrl ?? null : null,
         lines: { create: q.calc.lines.map((l, idx) => ({ ...l, sortOrder: idx })) },
         ...(advance > 0 ? { payments: { create: { amount: advance, method: (i.advanceMethod ?? "CASH") as "CASH", note: "Advance" } } } : {}),
       },
@@ -209,6 +224,13 @@ r.get("/", async (req, res) => {
   if (scope === "orders" && !req.query.status) {
     and.push({ OR: [{ status: { in: [...ORDERED] } }, { ...STRAIGHT_FROM_SITE }] });
   }
+  // A customer's own carving still waiting on a price (or on their yes to it) is a Request,
+  // never an Order - also when a status is asked for by name. Without this, "Orders, NEW"
+  // (the sidebar badge, the status filter) counted every unpriced request a second time, so
+  // the Orders badge showed the same number as Customer Requests.
+  if (scope === "orders") and.push({ NOT: { customDesignSvg: { not: null }, status: { in: ["NEW", "QUOTED"] } } });
+  // ?unseen=1 - website orders nobody in the shop has opened yet: the count on the Orders link.
+  if (req.query.unseen === "1") { where.source = "WEBSITE"; where.adminSeenAt = null; }
   if (scope === "requests") {
     where.customDesignSvg = { not: null };
     if (!req.query.status) where.status = { in: ["NEW", "QUOTED"] };
@@ -236,6 +258,11 @@ r.get("/", async (req, res) => {
   }))));
 });
 
+/** The same test the Orders screen uses: a confirmed door, or a gallery door ordered off the website. */
+const isOrderNow = (e: { status: string; source: string; customDesignSvg: string | null }) =>
+  ["CONFIRMED", "IN_PRODUCTION", "READY", "DELIVERED", "COMPLETED"].includes(e.status) ||
+  (e.status === "NEW" && e.source === "WEBSITE" && !e.customDesignSvg);
+
 r.get("/:id", async (req, res) => {
   const e = await prisma.estimate.findUniqueOrThrow({
     where: { id: idParam(req) },
@@ -245,6 +272,14 @@ r.get("/:id", async (req, res) => {
       payments: { orderBy: { paidAt: "asc" } }, usages: { include: { batch: true } },
     },
   });
+  /**
+   * Opening a website order is what "seen" means: it stops counting on the Orders link and
+   * loses its "New" tag. Only when it really is an order - Review & price opens a request
+   * through this same route, and a request looked at while pricing it is not an order seen.
+   */
+  if (e.source === "WEBSITE" && !e.adminSeenAt && isOrderNow(e)) {
+    await prisma.estimate.update({ where: { id: e.id }, data: { adminSeenAt: new Date() } });
+  }
   const woodOriginalCost = e.usages.filter((u) => !u.returned).reduce((s, u) => s + n(u.cft) * n(u.originalCost), 0);
   const steps = e.lines.filter(isWork).map(stepOf);
   res.json(ok({
@@ -345,8 +380,17 @@ r.patch("/:id/status", async (req, res) => {
     const e = await tx.estimate.findUniqueOrThrow({ where: { id } });
     if (e.status === "CANCELLED") throw bad("A cancelled estimate cannot change status");
     if (e.status === status) return e;
+    // Whoever moves an order along has plainly seen it: it stops counting as "New".
+    if (!e.adminSeenAt) await tx.estimate.update({ where: { id }, data: { adminSeenAt: new Date() } });
     if (status === "CANCELLED") {
-      if (!BEFORE_ORDER(e.status)) await returnForEstimate(tx, id);
+      /**
+       * Wood goes back to stock only if nobody has started on it. A CONFIRMED order has
+       * had its wood set aside but not cut, so it returns whole. Once production has begun
+       * the planks are cut to this door's size - they cannot go back on the pile as if they
+       * had never been touched, and returning them made the stock show wood the shop no
+       * longer has. That wood stays counted as used.
+       */
+      if (e.status === "CONFIRMED") await returnForEstimate(tx, id);
       return tx.estimate.update({ where: { id }, data: { status } });
     }
     if (FLOW.indexOf(status as (typeof FLOW)[number]) < FLOW.indexOf(e.status as (typeof FLOW)[number])) throw bad("Status cannot move backwards");
@@ -371,10 +415,13 @@ r.patch("/:id/status", async (req, res) => {
        */
       if (e.needsQuote) throw bad("Send the customer a price for their carving first — Review & price. It becomes an order once they accept it.");
       await consumeForEstimate(tx, id, e.woodStockId, n(e.totalCft));
-      await tx.estimate.update({ where: { id }, data: { confirmedAt: new Date() } });
+      await tx.estimate.update({ where: { id }, data: { confirmedAt: new Date(), confirmedBy: "SHOP" } });
       // The jobs go out with the order, so a confirmed door is never sitting unassigned.
       await assignWork(tx, id);
-      await say(tx, pending, e.customerId, id, MSG.confirmed(e.estimateNo));
+      // A website customer did not press anything themselves, so the message says the shop
+      // confirmed it for them - not a bare "confirmed" that reads like something went off
+      // on its own. A walk-in made at the counter gets the ordinary one.
+      await say(tx, pending, e.customerId, id, e.source === "WEBSITE" ? MSG.confirmedByShop(e.estimateNo) : MSG.confirmed(e.estimateNo));
     }
 
     /**
@@ -434,7 +481,10 @@ r.post("/:id/quote", async (req, res) => {
 
     const name = e.customDesignName ?? "Your carving";
     // Rewrite the two estimated lines in place; everything else on the sheet is untouched.
-    const rest = e.lines.filter((l) => !l.name.endsWith("(estimate)"));
+    // A second Review & price (the customer haggled) must replace the first price, not add
+    // to it: the lines it wrote last time no longer end in "(estimate)", so match them by name.
+    const carvingNames = new Set([`Carving: ${name}`, `Carving labour: ${name}`]);
+    const rest = e.lines.filter((l) => !l.name.endsWith("(estimate)") && !carvingNames.has(l.name));
     // workers/days come across untouched: re-pricing the carving must not wipe the plan
     // (or the man already on the job) off door making, polish and the frame.
     const keep = rest.map((l, idx) => ({ type: l.type, name: l.name, quantity: l.quantity, unitCost: l.unitCost, unitSell: l.unitSell, cost: l.cost, sell: l.sell, sortOrder: idx,
@@ -514,7 +564,7 @@ export const isWork = (l: { type: string; workers?: number; days?: number }) =>
 export const WORK_WHERE = {
   OR: [
     { type: "LABOUR" as const },
-    { type: { in: ["DOOR_COLOR", "DESIGN_COLOR"] as const[] as ("DOOR_COLOR" | "DESIGN_COLOR")[] }, OR: [{ workers: { gt: 0 } }, { days: { gt: 0 } }] },
+    { type: { in: ["DOOR_COLOR", "DESIGN_COLOR"] as ("DOOR_COLOR" | "DESIGN_COLOR")[] }, OR: [{ workers: { gt: 0 } }, { days: { gt: 0 } }] },
   ],
 };
 
@@ -585,6 +635,7 @@ r.delete("/:id", async (req, res) => {
     await tx.estimate.delete({ where: { id } });
     return found;
   });
+  removeCustomerPhoto(e.customDesignSourceUrl);
   res.json(ok({ id, estimateNo: e.estimateNo }, `${e.estimateNo} deleted. Any wood it took has gone back to stock.`));
 });
 

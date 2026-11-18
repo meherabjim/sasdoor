@@ -69,7 +69,7 @@ export default function PublicDesigner() {
     designId: f.designId || null,
     designColorId: hasCarving ? f.designColorId || null : null,
     withDelivery: false,
-    custom: custom ? { svg: custom.svg, shapes: custom.shapes, coverage: custom.coverage, name: t.photoChosen } : null,
+    custom: custom ? { svg: custom.svg, shapes: custom.shapes, coverage: custom.coverage, density: custom.density, name: t.photoChosen } : null,
   };
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -198,12 +198,12 @@ export default function PublicDesigner() {
       <PhotoCarving open={photoOpen} onClose={() => setPhotoOpen(false)} t={t as unknown as Record<string, string>}
         door={{ type: f.doorType, heightFt: sizeOk ? f.heightFt : 7, widthFt: sizeOk ? f.widthFt : f.doorType === "SINGLE" ? 3 : 5, doorHex, ornHex: orn }}
         onUse={(c) => { setCustom(c); set({ designId: 0 }); setPhotoOpen(false); }} />
-      {open && quote && <OrderDialog t={t} payload={payload} quote={quote} preview={{ type: f.doorType, heightFt: f.heightFt, widthFt: f.widthFt, doorHex, designKey: custom || designSvg ? null : design?.key, designSvg: custom?.svg ?? designSvg, ornHex: orn }} defaults={{ name: String(user?.name ?? ""), phone: String(user?.phone ?? ""), address: String(user?.address ?? "") }} loggedIn={isAuthenticated} onClose={() => setOpen(false)} />}
+      {open && quote && <OrderDialog t={t} payload={payload} photo={custom?.photo ?? null} quote={quote} preview={{ type: f.doorType, heightFt: f.heightFt, widthFt: f.widthFt, doorHex, designKey: custom || designSvg ? null : design?.key, designSvg: custom?.svg ?? designSvg, ornHex: orn }} defaults={{ name: String(user?.name ?? ""), phone: String(user?.phone ?? ""), address: String(user?.address ?? "") }} loggedIn={isAuthenticated} onClose={() => setOpen(false)} />}
     </div>
   );
 }
 
-function OrderDialog({ t, payload, quote, preview, defaults, onClose }: { t: typeof en.designer; payload: object; quote: Quote; preview: any; defaults: { name: string; phone: string; address: string }; loggedIn: boolean; onClose: () => void }) {
+function OrderDialog({ t, payload, photo, quote, preview, defaults, onClose }: { t: typeof en.designer; payload: object; photo: string | null; quote: Quote; preview: any; defaults: { name: string; phone: string; address: string }; loggedIn: boolean; onClose: () => void }) {
   const [c, setC] = useState({ ...defaults, note: "", advance: "", paymentMethod: "CASH", trxId: "" });
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -212,7 +212,7 @@ function OrderDialog({ t, payload, quote, preview, defaults, onClose }: { t: typ
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setSending(true); setErr("");
     try {
-      const r = await apiRequest<Wrap<{ estimateNo: string; needsQuote?: boolean }>>("/api/public/orders", { method: "POST", body: JSON.stringify({ ...payload, customer: { name: c.name, phone: c.phone, address: c.address || null }, note: c.note || null, advance: c.paymentMethod === "CASH" ? 0 : num(c.advance), paymentMethod: c.paymentMethod, trxId: c.trxId || null }) });
+      const r = await apiRequest<Wrap<{ estimateNo: string; needsQuote?: boolean }>>("/api/public/orders", { method: "POST", body: JSON.stringify({ ...payload, photo, customer: { name: c.name, phone: c.phone, address: c.address || null }, note: c.note || null, advance: c.paymentMethod === "CASH" ? 0 : num(c.advance), paymentMethod: c.paymentMethod, trxId: c.trxId || null }) });
       setNeedsQuote(!!r.data.needsQuote); setDone(r.data.estimateNo);
     } catch (x) { setErr(x instanceof Error ? x.message : "Error"); } finally { setSending(false); }
   };
@@ -220,7 +220,19 @@ function OrderDialog({ t, payload, quote, preview, defaults, onClose }: { t: typ
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-10" onMouseDown={onClose}>
       <div role="dialog" aria-modal="true" aria-label={t.orderTitle} onMouseDown={(e) => e.stopPropagation()} className="grid w-full max-w-3xl overflow-hidden rounded-xl bg-white md:grid-cols-[260px_1fr]">
-        <div className="bg-[#f5e8d7] p-4"><DoorPreview {...preview} dims={false} className="mx-auto max-h-[320px] w-full" /><p className="mt-3 text-center text-2xl font-semibold text-[#46281b]">{tk(quote.total)}</p></div>
+        <div className="bg-[#f5e8d7] p-4">
+          <DoorPreview {...preview} dims={false} className="mx-auto max-h-[320px] w-full" />
+          <p className="mt-3 text-center text-2xl font-semibold text-[#46281b]">{tk(quote.total)}</p>
+          {/* The photo the carving was traced from, so the customer sees exactly what goes to
+              the shop with this request: the drawing on the door, and the photo behind it. */}
+          {photo && (
+            <div className="mt-4">
+              <p className="mb-1.5 text-center text-xs font-semibold uppercase tracking-wide text-[#a15e2b]">{t.photoYours}</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo} alt={t.photoYours} className="mx-auto max-h-[220px] w-auto rounded-md border border-[#e7d3bc] object-contain" />
+            </div>
+          )}
+        </div>
         {done ? (
           <div className="flex flex-col justify-center gap-3 p-8">
             <p className="text-2xl font-semibold text-[#46281b]">{t.success}: {done}</p>

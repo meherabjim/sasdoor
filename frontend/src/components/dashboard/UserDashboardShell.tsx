@@ -7,6 +7,7 @@ import en from "@/messages/en.json";
 import bn from "@/messages/bn.json";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { badgeText, useUnread } from "@/lib/useUnread";
 
 export default function UserDashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -14,6 +15,7 @@ export default function UserDashboardShell({ children }: { children: React.React
   const { language } = useLanguage();
   const { hydrated, isAuthenticated, logout } = useAuth();
   const t = language === "en" ? en.account : bn.account;
+  const unread = useUnread();
 
   useEffect(() => {
     if (hydrated && !isAuthenticated) router.replace("/login");
@@ -28,10 +30,13 @@ export default function UserDashboardShell({ children }: { children: React.React
   // numbers and the shop's latest word; everything about a particular door - what it is
   // made of, what it cost, where the work has got to, the copy to keep - is a lot to read
   // and belongs behind its own name, not stacked under a welcome message.
-  const links = [
-    [t.dashboard, "/dashboard"],
-    [t.orders, "/dashboard/orders"],
-    [t.profile, "/dashboard/profile"],
+  // The numbers are the messages-app kind: Dashboard counts the shop's unseen updates (it is
+  // where they are listed), My Door Orders counts the doors with something new on them -
+  // including a final price still waiting for the customer's answer.
+  const links: [string, string, number][] = [
+    [t.dashboard, "/dashboard", unread.updates],
+    [t.orders, "/dashboard/orders", unread.orders],
+    [t.profile, "/dashboard/profile", 0],
   ];
 
   return (
@@ -40,9 +45,14 @@ export default function UserDashboardShell({ children }: { children: React.React
         <aside className="h-fit rounded-xl bg-[#4b2d20] p-4 text-white">
           <h2 className="mb-5 text-xl font-semibold">{t.myAccount}</h2>
           <nav className="grid gap-2">
-            {links.map(([label, href]) => (
-              <Link key={href} href={href} className={pathname === href ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-[#4b2d20]" : "rounded-lg px-3 py-2 text-sm hover:bg-white/10"}>
-                {label}
+            {links.map(([label, href, count]) => (
+              <Link key={href} href={href} className={`flex items-center justify-between gap-2 ${pathname === href ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-[#4b2d20]" : "rounded-lg px-3 py-2 text-sm hover:bg-white/10"}`}>
+                <span>{label}</span>
+                {count > 0 && (
+                  <span aria-label={`${count} new`} className="min-w-[22px] rounded-full bg-[#e58d28] px-1.5 text-center text-xs font-bold leading-[22px] text-white">
+                    {badgeText(count)}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>

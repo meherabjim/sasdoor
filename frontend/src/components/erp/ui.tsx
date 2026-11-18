@@ -31,7 +31,20 @@ export function useLoad<T = any>(path: string | null) {
     }
   }, [path]);
   useEffect(() => { reload(); }, [reload]);
-  return { data, loading, error, reload, setData };
+  /**
+   * The same fetch without the loading screen, for a list that keeps itself current in the
+   * background: the rows update in place instead of the table blinking away every time.
+   * A failed background refresh keeps the rows already on screen.
+   */
+  const refresh = useCallback(async () => {
+    if (!path) return;
+    const mine = ++seq.current;
+    try {
+      const r = await api.get<T>(path);
+      if (mine === seq.current) { setData(r); setError(""); }
+    } catch { /* keep what is on screen */ }
+  }, [path]);
+  return { data, loading, error, reload, refresh, setData };
 }
 
 /* ---------- toast ---------- */

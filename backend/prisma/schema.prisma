@@ -178,6 +178,8 @@ model Setting {
   frameWidthInch       Decimal  @default(5) @db.Decimal(6, 2)
   frameThicknessInch   Decimal  @default(2.5) @db.Decimal(6, 2)
   wastagePercent       Decimal  @default(10) @db.Decimal(6, 2)
+  /// Thickness the planer takes off a rough plank; added to door/frame thickness for the wood count.
+  planingAllowanceInch Decimal  @default(0) @db.Decimal(6, 2)
   minHeightFt          Decimal  @default(5) @db.Decimal(6, 2)
   maxHeightFt          Decimal  @default(10) @db.Decimal(6, 2)
   singleMinWidthFt     Decimal  @default(2) @db.Decimal(6, 2)
@@ -477,6 +479,8 @@ model Estimate {
    */
   customDesignSvg  String?
   customDesignName String?
+  /// The photo the customer traced it from (a file in uploads/), for the shop to price and cut from.
+  customDesignSourceUrl   String?
   notifications    Notification[]
   /**
    * True while the price on this estimate is not one the shop stands behind.
@@ -487,10 +491,14 @@ model Estimate {
    */
   needsQuote       Boolean          @default(false)
   quotedAt         DateTime?
+  /// When the shop first opened this as an order. Null on a website order = "New" on the Orders link.
+  adminSeenAt      DateTime?
   lines            EstimateLine[]
   payments         EstimatePayment[]
   usages           StockUsage[]
   confirmedAt      DateTime?
+  /// "CUSTOMER" (accepted on their own page) or "SHOP" (confirmed for them after they agreed by phone).
+  confirmedBy      String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 }

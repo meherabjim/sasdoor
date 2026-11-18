@@ -20,6 +20,7 @@ r.put("/", async (req, res) => {
   const num = z.coerce.number().positive();
   const b = parse(z.object({
     doorThicknessInch: num, frameWidthInch: num, frameThicknessInch: num, wastagePercent: zPercent,
+    planingAllowanceInch: z.coerce.number().min(0).max(2),
     minHeightFt: num, maxHeightFt: num, singleMinWidthFt: num, singleMaxWidthFt: num, doubleMinWidthFt: num, doubleMaxWidthFt: num,
     bigDoorSqftPerLeaf: num, bigDoorExtraPercent: zPercent,
     profitWoodPercent: zPercent, profitColorPercent: zPercent, profitDesignPercent: zPercent, profitLabourPercent: zPercent,

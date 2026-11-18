@@ -574,6 +574,17 @@
     "estimatedLine": "estimate",
     "estimatedNote": "One line here is an estimate: your own carving has never been priced. Everything else — wood, colour, frame, labour — is our fixed rate and will not change. Send the request and we will send you the final price for the carving.",
     "askFinal": "Get the final price",
-    "successQuote": "We will check your carving and send you the final price. You will see it on your own page, and you can place the order from there."
+    "successQuote": "We will check your carving and send you the final price. You will see it on your own page, and you can place the order from there.",
+    "photoMirror": "Same on left and right",
+    "photoMirrorHint": "For a symmetric carving: keeps only what appears on both sides, which drops most wood grain and glare. Leave it off if the design differs left to right.",
+    "photoOnDoor": "On your door",
+    "photoMask": "What the photo gave",
+    "photoEraseHint": "Rub out anything that is not carving: grain, glare, the hinge. Your door updates by itself.",
+    "photoBrush": "Brush",
+    "photoUndo": "Undo",
+    "photoClearErase": "Clear eraser",
+    "photoWeight": "Line thickness",
+    "photoSentToShop": "Your photo is sent to us with the request, so we can see the real carving to price it and make it. We use it for this door only.",
+    "photoYours": "Your photo (sent to the shop)"
   }
 }

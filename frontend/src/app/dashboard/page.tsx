@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { apiRequest } from "@/lib/api";
+import { markAllRead } from "@/lib/useUnread";
+import { ContactShop, useShop } from "@/components/dashboard/Journey";
 import { OrderDoor, STATUS, date, num, tk, totalsOf, useMyEstimates } from "@/components/dashboard/MyOrders";
 
 /**
@@ -23,13 +25,16 @@ export default function DashboardPage() {
   const [visits, setVisits] = useState<any[]>([]);
   /** What the shop has told this customer — the same messages a text was made from. */
   const [news, setNews] = useState<any[]>([]);
+  const [allNews, setAllNews] = useState(false);
+  const shop = useShop();
 
   useEffect(() => {
     apiRequest<{ data: any[] }>("/api/public/my/visits").then((r) => setVisits(r.data)).catch(() => {});
     apiRequest<{ data: any[] }>("/api/public/my/notifications").then((r) => {
       setNews(r.data);
       // Seen is seen. Marked read once they are on screen, so the dot does not nag for ever.
-      if (r.data.some((x) => !x.readAt)) apiRequest("/api/public/my/notifications/read", { method: "POST" }).catch(() => {});
+      // markAllRead also tells the badges to count again, so the numbers drop at once.
+      if (r.data.some((x) => !x.readAt)) markAllRead().catch(() => {});
     }).catch(() => {});
   }, []);
 
@@ -67,7 +72,7 @@ export default function DashboardPage() {
         <section className="mt-8">
           <h2 className="text-xl font-semibold">{L("Updates", "আপডেট")}</h2>
           <ul className="mt-3 divide-y divide-[#f0e2cf] rounded-xl border border-[#e3c8a7]">
-            {news.slice(0, 6).map((x) => (
+            {(allNews ? news : news.slice(0, 6)).map((x) => (
               <li key={x.id} className="flex gap-3 p-3.5">
                 <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${x.readAt ? "bg-[#dcc9b0]" : "bg-[#9b5528]"}`} />
                 <div className="min-w-0">
@@ -78,6 +83,22 @@ export default function DashboardPage() {
               </li>
             ))}
           </ul>
+          {news.length > 6 && (
+            <button type="button" onClick={() => setAllNews((v) => !v)} className="mt-2 text-sm font-semibold text-[#9b5528] underline underline-offset-2">
+              {allNews ? L("Show fewer", "কম দেখান") : L(`Show all ${news.length} updates`, `সব ${news.length}টা আপডেট দেখুন`)}
+            </button>
+          )}
+        </section>
+      )}
+
+      {/* Who to ask. Only when the shop has put a phone number in its settings. */}
+      {shop?.phone && (
+        <section className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e3c8a7] bg-[#fffaf4] p-4">
+          <div>
+            <h2 className="font-semibold">{L("Questions about your door?", "দরজা নিয়ে কোনো প্রশ্ন?")}</h2>
+            <p className="text-sm text-[#6d5442]">{shop.name}{shop.address ? ` · ${shop.address}` : ""} · {shop.phone}</p>
+          </div>
+          <ContactShop shop={shop} L={L} />
         </section>
       )}
 

@@ -1,0 +1,43 @@
+# Render Blueprint: backend API + PostgreSQL.
+# Render dashboard -> New -> Blueprint -> pick this repo.
+# The website (frontend/) goes on Vercel separately.
+services:
+  - type: web
+    name: sasdoor-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npm run build
+    # migrate + seed are both safe to re-run (seed only creates what is missing)
+    startCommand: npx prisma migrate deploy && npx prisma db seed && npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sasdoor-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES
+        value: 7d
+      - key: UPLOAD_DIR
+        value: uploads
+      - key: SUPER_ADMIN_NAME
+        value: Super Admin
+      # Filled in on the Render dashboard during setup:
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: PUBLIC_URL          # this service's own URL, e.g. https://sasdoor-api.onrender.com
+        sync: false
+      - key: CORS_ORIGINS        # the Vercel website URL, e.g. https://sasdoor.vercel.app
+        sync: false
+
+databases:
+  - name: sasdoor-db
+    plan: free
+    databaseName: sasdoor
+    user: sasdoor

@@ -1,16 +1,26 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
-import { bad, ok, parse } from "../lib/http";
-import { n, r2 } from "../lib/money";
+import { bad, idParam, ok, parse } from "../lib/http";
+import { n, r2, type Num } from "../lib/money";
 import { optionalAuth, requireAuth } from "../middleware/auth";
 import { consumeForEstimate } from "../lib/stockService";
 import { assignWork } from "../lib/assignWork";
 import { MSG, notify, sendSms } from "../lib/notify";
-import { createEstimate, customCarving, doorInput, quote, withCustomCarving } from "./estimates.routes";
+import { removeCustomerPhoto, saveCustomerPhoto } from "../lib/customerPhoto";
+import { createEstimate, customCarving, doorInput, isWork, quote, withCustomCarving } from "./estimates.routes";
 import { getSettings } from "./settings.routes";
 
 const r = Router();
+
+/**
+ * How to reach the shop - the name, phone and address from Price Settings. Public
+ * information anyway; the customer's account uses it for its Call and WhatsApp buttons.
+ */
+r.get("/shop", async (_req, res) => {
+  const s = await getSettings();
+  res.json(ok({ name: s.companyName, phone: s.companyPhone ?? null, address: s.companyAddress ?? null }));
+});
 
 /** Everything the Door Designer needs. Only SELL prices are exposed here. */
 r.get("/designer", async (_req, res) => {
@@ -81,9 +91,15 @@ r.post("/orders", optionalAuth, async (req, res) => {
     trxId: z.string().trim().max(60).nullish(),
     /** A carving traced from the customer's own photo, if they used one. */
     custom: customCarving.nullish(),
+    /**
+     * The photo that carving was traced from, as a data URL the browser already shrank.
+     * Only on the order, never on /quote: the quote is re-asked on every change in the
+     * designer, and a photo has nothing to do with the price.
+     */
+    photo: z.string().max(3_000_000).nullish(),
   }), req.body);
   // Online payments are not verified here: they are written into the note so the admin can check and add the payment.
-  const { advance, paymentMethod, trxId, custom, ...order } = b;
+  const { advance, paymentMethod, trxId, custom, photo, ...order } = b;
   const payNote = advance && advance > 0 ? `Customer reports payment: ${advance} taka via ${paymentMethod ?? "CASH"}${trxId ? ` (TrxID ${trxId})` : ""}. Please verify and add it in Payments.` : null;
   /**
    * The shop owner using their own website is not a customer.
@@ -95,13 +111,19 @@ r.post("/orders", optionalAuth, async (req, res) => {
    * an ordinary estimate they can price and confirm from the panel straight away.
    */
   const byAdmin = req.user?.role === "SUPER_ADMIN";
+  // Written before the estimate so a bad file is refused before anything is created, and
+  // taken away again if the estimate does not come to keep it.
+  const photoUrl = custom && photo ? saveCustomerPhoto(photo) : null;
   const e = await createEstimate({
     ...order,
     custom: custom ?? null,
+    customDesignSourceUrl: photoUrl,
     skipReview: byAdmin,
     note: [order.note, payNote].filter(Boolean).join("\n") || null,
     source: "WEBSITE", userId: req.user?.id,
-  });
+  }).catch((err) => { removeCustomerPhoto(photoUrl); throw err; });
+  // the carving was not kept (nothing in the gallery to price it against), so neither is its photo
+  if (photoUrl && e.customDesignSourceUrl !== photoUrl) removeCustomerPhoto(photoUrl);
   res.status(201).json(ok(
     { estimateNo: e.estimateNo, total: e.grandTotal, needsQuote: e.needsQuote },
     e.needsQuote
@@ -138,7 +160,7 @@ r.get("/content", async (req, res) => {
  * Nothing is hidden and nothing is moved: every taka is still in the total, and the shop's
  * own screen keeps the full split, line by line, with the crew on each.
  */
-const customerLines = (lines: { type: string; name: string; sell: unknown }[]) => {
+const customerLines = (lines: { type: string; name: string; sell: Num }[]) => {
   const out = lines.filter((l) => l.type !== "LABOUR").map((l) => ({ name: l.name, nameBn: null as string | null, sell: l.sell }));
   const work = r2(lines.filter((l) => l.type === "LABOUR").reduce((a, l) => a + n(l.sell), 0));
   if (work > 0) out.push({ name: "Labour (all work)", nameBn: "মিস্ত্রি খরচ (সব মিলিয়ে)", sell: work });
@@ -155,6 +177,7 @@ r.get("/my/estimates", requireAuth, async (req, res) => {
     woodName: e.woodName, doorColorName: e.doorColorName, doorColorCode: e.doorColorCode, designKey: e.designKey, designName: e.designName, designSvgUrl: e.designSvgUrl, designColorName: e.designColorName, designColorCode: e.designColorCode,
     // the carving they traced themselves, so their own page can draw the door they designed
     customDesignSvg: e.customDesignSvg, customDesignName: e.customDesignName,
+    confirmedBy: e.confirmedBy, confirmedAt: e.confirmedAt,
     needsQuote: e.needsQuote, quotedAt: e.quotedAt,
     withFrame: e.withFrame, withFitting: e.withFitting, withDelivery: e.withDelivery, totalCft: e.totalCft,
     lines: customerLines(e.lines), discount: e.discount, grandTotal: e.grandTotal, paidAmount: e.paidAmount,
@@ -170,7 +193,7 @@ r.get("/my/estimates", requireAuth, async (req, res) => {
      * waiting, being done, or finished. No names, no numbers, no dates that were guesses.
      */
     steps: e.status === "CONFIRMED" || e.status === "IN_PRODUCTION" || e.status === "READY" || e.status === "DELIVERED" || e.status === "COMPLETED"
-      ? e.lines.filter((l) => l.type === "LABOUR")
+      ? e.lines.filter(isWork)
         .map((l) => ({ job: l.name.replace(/^Carving labour: /, "Carving: "), state: l.doneAt ? "DONE" : l.startedAt ? "DOING" : "TODO", doneAt: l.doneAt }))
       : [],
   }))));
@@ -191,6 +214,32 @@ r.get("/my/notifications", requireAuth, async (req, res) => {
   }))));
 });
 
+/**
+ * The little numbers on the customer's links - like the count on a messages app, so they
+ * can see from the site header that the shop has said something without going in to look.
+ *
+ *  - updates:   messages from the shop they have not seen yet (price sent, work started,
+ *               door ready, delivered...).
+ *  - orders:    doors with something new on them - an unseen message, or a final price
+ *               still waiting on their yes. That second kind keeps counting after it is
+ *               seen, because it is not news, it is a question only they can answer.
+ *  - attention: everything at once, for the one number on the site header.
+ *
+ * Counts only: the messages themselves come from /my/notifications. Cheap enough to be
+ * asked every minute.
+ */
+r.get("/my/unread", requireAuth, async (req, res) => {
+  const c = await prisma.customer.findUnique({ where: { userId: req.user!.id } });
+  if (!c) return res.json(ok({ updates: 0, orders: 0, attention: 0 }));
+  const [unread, quoted] = await Promise.all([
+    prisma.notification.findMany({ where: { customerId: c.id, readAt: null }, select: { estimateId: true } }),
+    prisma.estimate.findMany({ where: { customerId: c.id, status: "QUOTED" }, select: { id: true } }),
+  ]);
+  const withNews = new Set(unread.map((x) => x.estimateId).filter((id): id is number => id != null));
+  const waitingOnly = quoted.filter((q) => !withNews.has(q.id)).length;
+  res.json(ok({ updates: unread.length, orders: withNews.size + waitingOnly, attention: unread.length + waitingOnly }));
+});
+
 r.post("/my/notifications/read", requireAuth, async (req, res) => {
   const c = await prisma.customer.findUnique({ where: { userId: req.user!.id } });
   if (c) await prisma.notification.updateMany({ where: { customerId: c.id, readAt: null }, data: { readAt: new Date() } });
@@ -206,7 +255,7 @@ r.post("/my/notifications/read", requireAuth, async (req, res) => {
  * record, so an id belonging to somebody else simply is not found.
  */
 r.post("/my/estimates/:id/accept", requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
+  const id = idParam(req);
   const c = await prisma.customer.findUnique({ where: { userId: req.user!.id } });
   if (!c) throw bad("No estimates found for this account");
   const e = await prisma.estimate.findFirst({ where: { id, customerId: c.id } });
@@ -234,7 +283,9 @@ r.post("/my/estimates/:id/accept", requireAuth, async (req, res) => {
      */
     const claimed = await tx.estimate.updateMany({
       where: { id: e.id, status: "QUOTED" },
-      data: { status: "CONFIRMED", confirmedAt: new Date() },
+      // adminSeenAt cleared: the shop may have opened this request while pricing it, but as an
+      // order it is news to them - it shows as "New" on their Orders link until opened again.
+      data: { status: "CONFIRMED", confirmedAt: new Date(), confirmedBy: "CUSTOMER", adminSeenAt: null },
     });
     if (!claimed.count) return null;
     await consumeForEstimate(tx, e.id, e.woodStockId, n(e.totalCft));
@@ -259,7 +310,7 @@ r.post("/my/estimates/:id/accept", requireAuth, async (req, res) => {
  * cannot be called off here; that is a conversation with the shop, not a button.
  */
 r.post("/my/estimates/:id/decline", requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
+  const id = idParam(req);
   const c = await prisma.customer.findUnique({ where: { userId: req.user!.id } });
   if (!c) throw bad("No estimates found for this account");
   const e = await prisma.estimate.findFirst({ where: { id, customerId: c.id } });
