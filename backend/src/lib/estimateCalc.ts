@@ -8,6 +8,8 @@ export type CalcInput = {
 export type CalcData = {
   settings: {
     doorThicknessInch: Num; frameWidthInch: Num; frameThicknessInch: Num; wastagePercent: Num;
+    /** Older rows and tests may not carry it; missing means 0. */
+    planingAllowanceInch?: Num;
     minHeightFt: Num; maxHeightFt: Num; singleMinWidthFt: Num; singleMaxWidthFt: Num;
     doubleMinWidthFt: Num; doubleMaxWidthFt: Num; bigDoorSqftPerLeaf: Num; bigDoorExtraPercent: Num;
   };
@@ -37,8 +39,23 @@ export function calculateEstimate(input: CalcInput, d: CalcData) {
     throw Object.assign(new Error(`Width ${minW}–${maxW} ft`), { status: 400 });
 
   const thickness = input.thicknessInch ?? n(s.doorThicknessInch);
-  const doorCft = input.heightFt * input.widthFt * (thickness / 12);
-  const frameCft = input.withFrame ? (2 * input.heightFt + input.widthFt) * (n(s.frameWidthInch) / 12) * (n(s.frameThicknessInch) / 12) : 0;
+  /**
+   * The wood a door takes, as the workshop actually cuts it.
+   *
+   *  - Planing: a plank arrives rough and is planed smooth. What the planer takes off was
+   *    paid for, so it is added to every thickness the wood is counted at (and to the
+   *    frame's width, which is planed too). The finished sizes are what the customer sees.
+   *  - The frame (chowkath) is two side posts and a head piece, measured on the outside:
+   *    each post runs the door's height plus the head it carries, and the head spans the
+   *    opening plus both posts. Counting only the opening (2H + W) left the corners out -
+   *    about a tenth of the frame's wood on every door.
+   *  - Wastage then covers everything the saw throws away: offcuts, knots, splits, joints.
+   */
+  const plane = n(s.planingAllowanceInch ?? 0);
+  const doorCft = input.heightFt * input.widthFt * ((thickness + plane) / 12);
+  const fw = n(s.frameWidthInch) / 12;
+  const frameLengthFt = 2 * (input.heightFt + fw) + (input.widthFt + 2 * fw);
+  const frameCft = input.withFrame ? frameLengthFt * ((n(s.frameWidthInch) + plane) / 12) * ((n(s.frameThicknessInch) + plane) / 12) : 0;
   const totalCft = r2((doorCft + frameCft) * (1 + n(s.wastagePercent) / 100));
 
   const leafSqft = input.heightFt * (input.widthFt / (double ? 2 : 1));

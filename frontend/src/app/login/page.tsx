@@ -92,9 +92,18 @@ async function submit(e: FormEvent<HTMLFormElement>) {
     const role = roleFromResponse(res);
 
 
-    // redirect based on role
+    // Back to the page the expired session came from (lib/api.ts adds ?next=).
+    // Only a path on this site: "//evil.com" or a full URL is ignored.
+    const next = new URLSearchParams(window.location.search).get("next");
+    const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+    const adminNext = safeNext?.startsWith("/admin");
 
-    if(isAdminRole(role)) {
+    if (safeNext && (!adminNext || isAdminRole(role))) {
+
+      router.push(safeNext);
+
+    }
+    else if(isAdminRole(role)) {
 
       router.push("/admin");
 

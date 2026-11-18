@@ -16,6 +16,7 @@ import bn from "../../messages/bn.json";
 
 import { useLanguage } from "../../context/LanguageContext";
 import { isAdminRole, useAuth } from "../../context/AuthContext";
+import { badgeText, useUnread } from "../../lib/useUnread";
 
 
 
@@ -58,6 +59,10 @@ isAuthenticated,
 role,
 logout
 }=useAuth();
+
+// New word from the shop - a price, a work update - counted on the Dashboard button, so a
+// customer sees it from any page of the site without going into their account to look.
+const unread=useUnread();
 
 
 
@@ -144,9 +149,13 @@ label:n.portfolio,
 href:"/portfolio"
 },
 
+// Phones only: the desktop row has the "Get an Estimate" button for this instead, so the
+// page is never offered twice side by side. The mobile menu has no buttons of its own, so
+// without this entry a phone would have no way to reach the designer at all.
 {
-label:n.design,
-href:"/design"
+label:n.estimate,
+href:"/design",
+mobileOnly:true
 }
 
 ];
@@ -235,7 +244,7 @@ gap-4
 
 
 {
-navItems.map(item=>(
+navItems.filter(item=>!item.mobileOnly).map(item=>(
 
 
 item.dropdown ?
@@ -453,6 +462,7 @@ hydrated && isAuthenticated
 href={dashboardHref}
 
 className="
+relative
 rounded-md
 border
 border-white/40
@@ -466,6 +476,15 @@ shrink-0
 >
 
 {account.dashboard}
+
+{unread.attention>0&&(
+<span
+aria-label={`${unread.attention} new`}
+className="absolute -right-2 -top-2 min-w-[20px] rounded-full bg-[#e58d28] px-1.5 text-center text-[11px] font-bold leading-5 text-white ring-2 ring-[#46281b]"
+>
+{badgeText(unread.attention)}
+</span>
+)}
 
 </Link>
 
@@ -564,7 +583,8 @@ shrink-0
 
 {/* Customers design a door on /design and send the request straight in; it lands in
     the admin's "Customer requests" list. Sitting beside Book A Visit because it is the
-    same kind of ask - one is "come see us", the other is "tell me the price". */}
+    same kind of ask - one is "come see us", the other is "tell me the price". It is the
+    only way to the designer on desktop: the menu no longer has a "Door Design" link too. */}
 <Link
 
 href="/design"

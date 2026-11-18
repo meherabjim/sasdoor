@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { useLanguage } from "@/context/LanguageContext";
+import { markAllRead } from "@/lib/useUnread";
 import { MyOrders } from "@/components/dashboard/MyOrders";
 
 /**
@@ -13,6 +15,9 @@ import { MyOrders } from "@/components/dashboard/MyOrders";
 export default function MyOrdersPage() {
   const { language } = useLanguage();
   const L = (e: string, b: string) => (language === "en" ? e : b);
+  // Every update is about one of these doors, and opening them is seeing it: the counts on
+  // the links drop. A price still waiting for their answer keeps its number until answered.
+  useEffect(() => { markAllRead().catch(() => {}); }, []);
   return (
     <>
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#a15e2b]">{L("My account", "আমার অ্যাকাউন্ট")}</p>

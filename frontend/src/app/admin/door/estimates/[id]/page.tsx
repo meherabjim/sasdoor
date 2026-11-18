@@ -8,9 +8,13 @@ import { Badge, Button, Card, ErrorBox, Field, Input, Loading, Modal, PageHeader
 import { DoorPreview, toneOf, useDesignSvg } from "@/components/erp/DoorPreview";
 import { PaymentModal } from "@/components/erp/PaymentModal";
 import { WorkSheet } from "@/components/erp/WorkSheet";
+import { CustomerPhoto } from "@/components/erp/CustomerPhoto";
 
 const NEXT: Record<string, [string, string] | undefined> = {
-  NEW: ["CONFIRMED", "Confirm (deduct wood from stock)"], CONFIRMED: ["IN_PRODUCTION", "Start production"], IN_PRODUCTION: ["READY", "Ready"], READY: ["DELIVERED", "Mark delivered"], DELIVERED: ["COMPLETED", "Used up"],
+  NEW: ["CONFIRMED", "Confirm (deduct wood from stock)"],
+  // Price sent, and the customer said yes on the phone instead of on their page.
+  QUOTED: ["CONFIRMED", "Confirm (deduct wood from stock)"],
+  CONFIRMED: ["IN_PRODUCTION", "Start production"], IN_PRODUCTION: ["READY", "Ready"], READY: ["DELIVERED", "Mark delivered"], DELIVERED: ["COMPLETED", "Mark completed"],
 };
 
 export default function EstimateDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -40,7 +44,9 @@ export default function EstimateDetail({ params }: { params: Promise<{ id: strin
   if (error) return <ErrorBox text={error} retry={reload} />;
   if (loading || !e) return <Loading />;
 
-  const next = NEXT[e.status];
+  // An unpriced customer carving cannot be confirmed (the server refuses); price it first
+  // with Review & price on the Requests list.
+  const next = e.needsQuote ? undefined : NEXT[e.status];
   const setStatus = async (s: string, ask?: string) => {
     if (ask && !(await confirm({ title: "Are you sure?", message: ask, danger: s === "CANCELLED", confirmText: s === "CANCELLED" ? "Cancel the order" : "Yes" }))) return;
     if (await run(() => api.patch(`/api/admin/estimates/${id}/status`, { status: s }))) reload();
@@ -57,7 +63,11 @@ export default function EstimateDetail({ params }: { params: Promise<{ id: strin
             <Button variant="ghost" onClick={() => window.print()}><Printer className="h-4 w-4" />Print</Button>
             {e.status !== "CANCELLED" && <Button variant="ghost" onClick={() => setInfo({ name: e.customer.name, phone: e.customer.phone, address: e.customer.address ?? "", note: e.note ?? "", discount: String(num(e.discount)) })}><Pencil className="h-4 w-4" />Edit</Button>}
             {e.status === "NEW" && <Link href={`/admin/door/designer?edit=${e.id}`}><Button variant="ghost"><DoorOpen className="h-4 w-4" />Change door</Button></Link>}
-            {e.status !== "CANCELLED" && e.status !== "COMPLETED" && <Button variant="danger" busy={busy} onClick={() => setStatus("CANCELLED", "Cancel this estimate? Wood already taken will return to stock.")}>Cancel</Button>}
+            {e.status !== "CANCELLED" && e.status !== "COMPLETED" && <Button variant="danger" busy={busy} onClick={() => setStatus("CANCELLED", e.status === "CONFIRMED"
+              ? "Cancel this order? Its wood has not been cut yet, so it goes back to stock."
+              : e.status === "NEW" || e.status === "QUOTED"
+                ? "Cancel this estimate? No wood has been taken for it."
+                : "Cancel this order? Work has already started, so its wood is cut and stays counted as used — it does NOT go back to stock.")}>Cancel</Button>}
             {next && <Button busy={busy} onClick={() => setStatus(next[0], next[0] === "CONFIRMED" ? "Confirming will deduct wood from stock. Continue?" : undefined)}>{next[1]}</Button>}
           </>} />
 
@@ -77,6 +87,8 @@ export default function EstimateDetail({ params }: { params: Promise<{ id: strin
                 <div key={k}><dt className="text-xs text-[#9a8b7e]">{k}</dt><dd className="font-medium text-[#1f1712]">{v}</dd></div>
               ))}
             </dl>
+            <WoodBreakdown e={e} />
+            <CustomerPhoto url={e.customDesignSourceUrl} fileName={`${e.estimateNo}-customer-photo`} className="mt-4" />
           </Card>
 
           <div className="space-y-5">
@@ -184,6 +196,44 @@ function Invoice({ e, settings, doorHex, orn, carvingSvg }: { e: any; settings: 
       )}
       {e.note && <p className="mt-3"><b>Note:</b> {e.note}</p>}
       <div className="mt-14 flex justify-between"><span className="border-t border-black px-8 pt-1">Customer signature</span><span className="border-t border-black px-8 pt-1">{settings?.companyName ?? "SAS DOOR"}</span></div>
+    </div>
+  );
+}
+
+/**
+ * Where the wood on this door goes: the leaf, the frame, and what is lost to cutting.
+ *
+ * The wastage is already inside the CFT the customer pays for (Settings → wastage %), and
+ * it leaves stock with the rest when the order is confirmed - so the shop is paid for the
+ * wood it cuts away. This only makes that visible, with what it costs and what it brings
+ * in, so the percentage can be checked against what the workshop actually throws out.
+ * Shop-side only: the customer's copy shows the wood as one line.
+ */
+type WoodLine = { type: string; unitCost: string | number; unitSell: string | number };
+function WoodBreakdown({ e }: { e: { doorCft: string | number; frameCft: string | number; totalCft: string | number; withFrame: boolean; lines?: WoodLine[] } }) {
+  const door = num(e.doorCft), frame = num(e.frameCft), total = num(e.totalCft);
+  const waste = Math.max(0, total - door - frame);
+  if (!total) return null;
+  const pct = door + frame > 0 ? (waste / (door + frame)) * 100 : 0;
+  const wood = (e.lines ?? []).find((l) => l.type === "WOOD");
+  const cost = wood ? num(wood.unitCost) : 0, sell = wood ? num(wood.unitSell) : 0;
+  const row = (label: string, cft: number, strong = false) => (
+    <div className={`flex justify-between py-0.5 ${strong ? "border-t border-[#efe8df] pt-1.5 font-semibold" : ""}`}>
+      <span>{label}</span><span className="font-mono">{fmtNum(cft)} CFT</span>
+    </div>
+  );
+  return (
+    <div className="mt-4 rounded-lg border border-[#efe8df] px-3 py-2 text-sm">
+      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#7a6a5d]">Wood used</div>
+      {row("Door leaf", door)}
+      {e.withFrame && row("Frame (chowkath)", frame)}
+      {row(`Wastage (${pct.toFixed(0)}%)`, waste)}
+      {row("Total taken from stock", total, true)}
+      {waste > 0 && cost > 0 && (
+        <p className="mt-1.5 text-xs text-[#7a6a5d]">
+          The wastage costs you {tk(waste * cost)} and the customer pays {tk(waste * sell)} for it, inside the wood line.
+        </p>
+      )}
     </div>
   );
 }

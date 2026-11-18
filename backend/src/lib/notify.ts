@@ -82,6 +82,12 @@ export const MSG = {
     bodyEn: `SAS DOOR: your order ${no} is confirmed and the work has been given out. You can follow it in your account.`,
     bodyBn: `SAS DOOR: আপনার অর্ডার ${no} কনফার্ম হয়েছে, কাজ ভাগ করে দেওয়া হয়েছে। অ্যাকাউন্টে অগ্রগতি দেখতে পারবেন।`,
   }),
+  /** The shop made it an order for the customer - they agreed by phone or in person. */
+  confirmedByShop: (no: string): Message => ({
+    titleEn: "Order confirmed by the shop", titleBn: "দোকান অর্ডার কনফার্ম করেছে",
+    bodyEn: `SAS DOOR: as you agreed with us, we have confirmed your order ${no} for you and the work has been given out. You can follow it in your account.`,
+    bodyBn: `SAS DOOR: আপনার সাথে কথা অনুযায়ী আমরা আপনার অর্ডার ${no} কনফার্ম করে দিয়েছি, কাজ ভাগ করে দেওয়া হয়েছে। অ্যাকাউন্টে অগ্রগতি দেখতে পারবেন।`,
+  }),
   jobDone: (no: string, job: string, jobBn: string): Message => ({
     titleEn: `${job} finished`, titleBn: `${jobBn} শেষ`,
     bodyEn: `SAS DOOR: ${job} on your door ${no} is finished.`,

@@ -19,6 +19,9 @@ function handleExpiredSession(endpoint: string) {
 
   redirecting = true;
   localStorage.removeItem("accessToken");
+  // AuthContext keeps the user under "authUser"; leaving it behind showed a logged-out
+  // visitor the old account's name and role.
+  localStorage.removeItem("authUser");
   localStorage.removeItem("user");
   const here = window.location.pathname + window.location.search;
   const back = here.startsWith("/login") ? "" : `?next=${encodeURIComponent(here)}`;

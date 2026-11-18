@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { CustomerPhoto } from "@/components/erp/CustomerPhoto";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Search, ShoppingBag, Gavel, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, ShoppingBag, Gavel, Trash2, FolderOpen } from "lucide-react";
 import { api, fmtDate, ftin, METHODS, num, STATUS, tk } from "@/lib/erp";
 import { Badge, Button, ErrorBox, Field, Input, Loading, Modal, Select, Table, Td, Toggle, useAction, useConfirm, useLoad } from "@/components/erp/ui";
 import { DoorPreview, ornColor } from "@/components/erp/DoorPreview";
@@ -28,11 +29,23 @@ export function EstimatesList({ reloadKey = 0, initialSource = "", initialQuery 
   const [q, setQ] = useState(initialQuery); const [status, setStatus] = useState(""); const [query, setQuery] = useState(initialQuery);
   const source = initialSource;
   const params = new URLSearchParams({ q: query, status, source, scope });
-  const { data, loading, error, reload } = useLoad<any[]>(`/api/admin/estimates?${params.toString()}&k=${reloadKey}`);
+  const { data, loading, error, reload, refresh } = useLoad<any[]>(`/api/admin/estimates?${params.toString()}&k=${reloadKey}`);
+  /**
+   * The customer answers from their own page, while this screen sits open. Without a
+   * refresh, a request they had already accepted still showed here as "Price sent" with a
+   * button to make it an order - it already was one. So the list asks again every 30
+   * seconds and whenever you come back to the window, quietly, without the table blinking.
+   */
+  useEffect(() => {
+    const id = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(id); window.removeEventListener("focus", refresh); };
+  }, [refresh]);
   const [conv, setConv] = useState<any | null>(null);
   const [review, setReview] = useState<any | null>(null);
   const confirm = useConfirm();
   const { busy, run } = useAction();
+  const router = useRouter();
 
   /**
    * Take a row off the books for good.
@@ -68,10 +81,14 @@ export function EstimatesList({ reloadKey = 0, initialSource = "", initialQuery 
       {error ? <ErrorBox text={error} retry={reload} /> : loading ? <Loading /> : (
         <Table head={["Estimate", "Date", "Customer", "Door", "Work", "Total", "Paid", "Due", "Status", ""]} empty={!data?.length}>
           {data?.map((e) => (
-            <tr key={e.id} className="hover:bg-[#faf7f3]">
+            // The whole row opens the order - finding the estimate number to click was the
+            // only way in. The buttons at the end keep their own job (they stop the click).
+            <tr key={e.id} className="cursor-pointer hover:bg-[#faf7f3]" onClick={() => router.push(`/admin/door/estimates/${e.id}`)}>
               <Td>
                 <Link href={`/admin/door/estimates/${e.id}`} className="font-semibold text-[#8a5a1f] hover:underline">{e.estimateNo}</Link>
                 {e.source === "WEBSITE" && <span className="ml-2"><Badge tone="blue">Website</Badge></span>}
+                {/* A website order nobody in the shop has opened yet - the same ones counted on the Orders link. */}
+                {scope === "orders" && e.source === "WEBSITE" && !e.adminSeenAt && <span className="ml-2"><Badge tone="green">New</Badge></span>}
                 {e.needsQuote && <span className="ml-2"><Badge tone="amber">Needs a price</Badge></span>}
               </Td>
               <Td>{fmtDate(e.createdAt)}</Td>
@@ -94,7 +111,7 @@ export function EstimatesList({ reloadKey = 0, initialSource = "", initialQuery 
               <Td className={`font-mono ${e.due > 0 ? "text-red-600" : "text-emerald-700"}`}>{tk(e.due)}</Td>
               <Td><Badge tone={STATUS[e.status]?.tone}>{STATUS[e.status]?.label}</Badge></Td>
               <Td>
-                <div className="flex justify-end gap-1.5">
+                <div className="flex justify-end gap-1.5" onClick={(ev) => ev.stopPropagation()}>
                   {/* A carving the customer traced has never been priced by anyone, and the
                       figure on screen is one this software guessed. Until the shop sends a
                       real price it cannot become an order — so Review comes first and Make
@@ -102,7 +119,15 @@ export function EstimatesList({ reloadKey = 0, initialSource = "", initialQuery 
                       from the order page if the customer haggles. */}
                   {e.needsQuote
                     ? <Button className="whitespace-nowrap" onClick={() => setReview(e)}><Gavel className="h-4 w-4" />Review &amp; price</Button>
-                    : (e.status === "NEW" || e.status === "QUOTED") && <Button className="whitespace-nowrap" onClick={() => setConv(e)}><ShoppingBag className="h-4 w-4" />Make order</Button>}
+                    : e.status === "QUOTED"
+                      // Price sent: normally the customer accepts on their own page and it moves
+                      // to Orders by itself. This is for when they say yes by phone instead.
+                      ? <Button variant="ghost" className="whitespace-nowrap" title="The customer agreed to the price by phone or in person" onClick={() => setConv(e)}><ShoppingBag className="h-4 w-4" />Customer said yes</Button>
+                      : e.status === "NEW" && <Button className="whitespace-nowrap" onClick={() => setConv(e)}><ShoppingBag className="h-4 w-4" />Make order</Button>}
+                  <Link href={`/admin/door/estimates/${e.id}`} title="Open the whole order"
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e0d6ca] bg-white px-3 py-1.5 text-sm font-medium text-[#1f1712] hover:bg-[#faf7f3]">
+                    <FolderOpen className="h-4 w-4" />Open
+                  </Link>
                   <Button size="sm" variant="danger" aria-label={`Delete ${e.estimateNo}`} title="Delete" busy={busy} onClick={() => del(e)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -147,7 +172,6 @@ export function EstimatesList({ reloadKey = 0, initialSource = "", initialQuery 
 function ConvertModal({ est, onClose, onDone }: { est: any | null; onClose: () => void; onDone: () => void }) {
   const [p, setP] = useState({ amount: "", method: "CASH" });
   const { busy, run } = useAction();
-  const router = useRouter();
   if (!est) return null;
   const due = num(est.grandTotal) - num(est.paidAmount) - num(p.amount);
   const submit = async (ev: React.FormEvent) => {
@@ -156,16 +180,19 @@ function ConvertModal({ est, onClose, onDone }: { est: any | null; onClose: () =
       const r = await api.patch(`/api/admin/estimates/${est.id}/status`, { status: "CONFIRMED" });
       if (num(p.amount) > 0) await api.post(`/api/admin/estimates/${est.id}/payments`, { amount: num(p.amount), method: p.method, note: "Advance on order" });
       return r;
-    }, "Order confirmed");
-    // Straight on to the order itself. An order that has just been placed is the one thing
-    // everybody asks about next - what was agreed, what was paid, what is still due - so
-    // the answer is put on screen rather than left behind a row in a list.
-    if (ok) { setP({ amount: "", method: "CASH" }); onDone(); router.push(`/admin/door/estimates/${est.id}`); }
+    }, `${est.estimateNo} is now an order — you will find it in Orders`);
+    // Stay on the list: the row moves off it by itself and the message says where it went.
+    // Jumping into the order straight away was one screen nobody had asked for.
+    if (ok) { setP({ amount: "", method: "CASH" }); onDone(); }
   };
   return (
     <Modal open onClose={onClose} title={`Make order: ${est.estimateNo}`}>
       <form className="space-y-4" onSubmit={submit}>
-        <p className="text-sm text-[#4a3d33]">{est.customer.name} ({est.customer.phone}) liked this design. Confirming deducts wood from stock.</p>
+        <p className="text-sm text-[#4a3d33]">
+          {est.status === "QUOTED"
+            ? <>{est.customer.name} ({est.customer.phone}) agreed to the price you sent. Confirming makes it an order: wood leaves stock, the work is given out, and it moves to Orders.</>
+            : <>{est.customer.name} ({est.customer.phone}) liked this design. Confirming deducts wood from stock.</>}
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Paid now (advance)"><Input id="c-amt" type="number" min={0} max={num(est.grandTotal) - num(est.paidAmount)} value={p.amount} onChange={(e) => setP({ ...p, amount: e.target.value })} /></Field>
           <Field label="Method"><Select id="c-met" value={p.method} onChange={(e) => setP({ ...p, method: e.target.value })}>{METHODS.filter(([k]) => k !== "LC").map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></Field>
@@ -195,12 +222,29 @@ function ReviewModal({ est, onClose, onDone }: { est: any | null; onClose: () =>
   const [p, setP] = useState({ carving: "", labour: "", workers: "", days: "", note: "", keep: false });
   const { busy, run } = useAction();
   const full = useLoad<any>(est ? `/api/admin/estimates/${est.id}` : null);
-  if (!est) return null;
 
-  const e = full.data;
   // The two lines the website estimated, and everything that was already settled.
+  const e = full.data;
   const lines: any[] = e?.lines ?? [];
   const estimated = lines.filter((l) => l.name.endsWith("(estimate)"));
+  const estCarving = estimated.find((l) => l.type === "DESIGN");
+  const estLabour = estimated.find((l) => l.type === "LABOUR");
+  /** The website's estimate, as the four boxes hold it. */
+  const fromEstimate = () => ({
+    carving: estCarving ? String(Math.round(num(estCarving.sell))) : "",
+    labour: estLabour ? String(Math.round(num(estLabour.sell))) : "",
+    workers: estLabour?.workers ? String(estLabour.workers) : "",
+    days: estLabour?.days ? String(estLabour.days) : "",
+  });
+  // The boxes start from the estimate the customer was shown, not empty: the admin checks
+  // it against the photo and changes only what is wrong. Filled once per request, while
+  // rendering (React's "adjust state when a prop changes"), so typing is never overwritten.
+  const [filledFor, setFilledFor] = useState<number | null>(null);
+  if (e && est && e.id === est.id && filledFor !== e.id) {
+    setFilledFor(e.id);
+    setP({ ...fromEstimate(), note: "", keep: false });
+  }
+  if (!est) return null;
   const settled = lines.filter((l) => !l.name.endsWith("(estimate)"));
   const settledTotal = settled.reduce((a, l) => a + num(l.sell), 0);
   const carving = num(p.carving), labour = num(p.labour);
@@ -228,6 +272,7 @@ function ReviewModal({ est, onClose, onDone }: { est: any | null; onClose: () =>
                 ornHex={ornColor(e.doorColorCode || "#B07A45", e.designColorCode ? { colorCode: e.designColorCode, isToneOnTone: false } : null)}
                 dims={false} className="max-h-[260px] w-full" />
               <p className="mt-2 text-center text-xs text-[#7a6a5d]">{e.customDesignName ?? "Customer's carving"}</p>
+              <CustomerPhoto url={e.customDesignSourceUrl} fileName={`${e.estimateNo}-customer-photo`} className="mt-3" />
             </div>
 
             <div className="space-y-3">
@@ -248,19 +293,32 @@ function ReviewModal({ est, onClose, onDone }: { est: any | null; onClose: () =>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Carving price" hint={guessed ? `The website estimated ${tk(guessed)} for both lines` : undefined}>
+                <Field label="Carving price" hint={estCarving ? `Website estimate: ${tk(estCarving.sell)}` : undefined}>
                   <Input id="rv-carving" type="number" min={0} required value={p.carving} onChange={(ev) => setP({ ...p, carving: ev.target.value })} />
                 </Field>
-                <Field label="Carving labour">
+                <Field label="Carving labour" hint={estLabour ? `Website estimate: ${tk(estLabour.sell)}` : undefined}>
                   <Input id="rv-labour" type="number" min={0} value={p.labour} onChange={(ev) => setP({ ...p, labour: ev.target.value })} />
                 </Field>
               </div>
+              <div className="-mt-1 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <span>
+                  {guessed
+                    ? <>Filled in from the website&apos;s estimate ({tk(guessed)} in all), worked out from your own gallery prices. Check it against the photo and change what is wrong.</>
+                    : <>The website had nothing in your gallery to estimate from, so type the price.</>}
+                </span>
+                {guessed > 0 && (
+                  <button type="button" onClick={() => setP({ ...p, ...fromEstimate() })} className="rounded-md border border-amber-300 bg-white px-2 py-1 font-medium hover:bg-amber-100">
+                    Back to the estimate
+                  </button>
+                )}
+              </div>
 
               {/* A gallery carving brings its crew from the price list. This one has never
-                  been seen before, so the only person who can say how many men it takes is
-                  the one looking at it now. The customer is never shown either number. */}
+                  been seen before, so the website estimated it from what the gallery's
+                  carvings of this much work take - a starting point for the person looking
+                  at the photo now. The customer is never shown either number. */}
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Workers needed" hint="For your work sheet — the customer never sees this">
+                <Field label="Workers needed" hint={estLabour?.workers ? `Estimated ${estLabour.workers} from your gallery · the customer never sees this` : "For your work sheet — the customer never sees this"}>
                   <Input id="rv-workers" type="number" min={0} value={p.workers} onChange={(ev) => setP({ ...p, workers: ev.target.value })} />
                 </Field>
                 <Field label="Days">

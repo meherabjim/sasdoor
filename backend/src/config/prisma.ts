@@ -16,7 +16,7 @@ export type Tx = Prisma.TransactionClient;
  * `npm run dev` regenerates first, so this should not happen. It is checked anyway,
  * because the failure is invisible at the point it is caused and unmistakable here.
  */
-const NEEDED = ["customDesignSvg", "customDesignName", "needsQuote", "quotedAt"] as const;
+const NEEDED = ["customDesignSvg", "customDesignName", "customDesignSourceUrl", "needsQuote", "quotedAt", "adminSeenAt", "confirmedBy"] as const;
 
 export function assertClientMatchesSchema() {
   const known = Object.keys((Prisma as unknown as { EstimateScalarFieldEnum?: object }).EstimateScalarFieldEnum ?? {});

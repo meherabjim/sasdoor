@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "@/context/LanguageContext";
 import { apiRequest } from "@/lib/api";
 import { DoorPreview, designSvgSettled, toneOf, useDesignSvg } from "@/components/erp/DoorPreview";
+import { ContactShop, OrderJourney, useShop } from "@/components/dashboard/Journey";
 
 export const num = (v: unknown) => Number(v ?? 0) || 0;
 export const tk = (v: unknown) => `৳${Math.round(num(v)).toLocaleString("en-IN")}`;
@@ -35,8 +36,14 @@ export const useMyEstimates = () => {
   return { list, err, setErr, load };
 };
 
+/**
+ * What the customer owes is what they have ordered. A request still waiting on the shop's
+ * price, or a price they have not said yes to, is not money anybody owes yet - counting it
+ * put every unanswered request into "Due" (one customer's page read ৳9,80,807 due on doors
+ * they had only asked about).
+ */
 export const totalsOf = (list: any[] | null) =>
-  (list ?? []).filter((e) => e.status !== "CANCELLED")
+  (list ?? []).filter((e) => ORDERED.includes(e.status))
     .reduce((a, e) => ({ total: a.total + num(e.grandTotal), paid: a.paid + num(e.paidAmount), due: a.due + num(e.due) }), { total: 0, paid: 0, due: 0 });
 
 /**
@@ -72,6 +79,7 @@ export function MyOrders() {
   const { list, err, setErr, load } = useMyEstimates();
   const [busy, setBusy] = useState(0);
   const [sheet, setSheet] = useState<any | null>(null);
+  const shop = useShop();
 
   /** Accept the price the shop sent back. This is the moment it becomes a real order. */
   const accept = async (id: number) => {
@@ -119,7 +127,17 @@ export function MyOrders() {
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${st[2]}`}>{language === "en" ? st[0] : st[1]}</span>
                   </div>
                   <p className="mt-1 text-sm text-[#6d5442]">{e.doorType === "DOUBLE" ? L("Double", "ডাবল") : L("Single", "সিঙ্গেল")} · {num(e.heightFt)}&apos; × {num(e.widthFt)}&apos; · {e.woodName}{e.doorColorName ? ` · ${e.doorColorName}` : ""}{e.designName ? ` · ${e.designName}` : ""}</p>
-                  <details className="mt-2 text-sm">
+                  {/* The whole road this door travels, with the step it is on lit up. */}
+                  <OrderJourney status={e.status} ownCarving={!!e.customDesignSvg} L={L} />
+                  {/* It became an order without them pressing anything here - they said yes to
+                      the shop by phone or in person - so say who did it, and when. */}
+                  {e.confirmedBy === "SHOP" && e.status !== "CANCELLED" && (
+                    <p className="mt-2 rounded-md bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-900">
+                      {L(`Confirmed by the shop${e.confirmedAt ? ` on ${date(e.confirmedAt)}` : ""}, as you agreed with us.`,
+                         `আপনার সাথে কথা অনুযায়ী দোকান অর্ডারটা কনফার্ম করেছে${e.confirmedAt ? ` (${date(e.confirmedAt)})` : ""}।`)}
+                    </p>
+                  )}
+                  <details className="mt-3 text-sm">
                     <summary className="cursor-pointer text-[#9b5528]">{L("Price details", "দামের বিস্তারিত")}</summary>
                     <ul className="mt-2 space-y-1">{e.lines.map((l: any, i: number) => <li key={i} className="flex justify-between gap-3"><span>{language === "en" ? l.name : l.nameBn ?? l.name}</span><span>{tk(l.sell)}</span></li>)}{num(e.discount) > 0 && <li className="flex justify-between"><span>{L("Discount", "ছাড়")}</span><span>−{tk(e.discount)}</span></li>}</ul>
                     {e.payments.length > 0 && <ul className="mt-2 space-y-1 border-t border-[#f0e2cf] pt-2">{e.payments.map((p: any, i: number) => <li key={i} className="flex justify-between"><span>{date(p.paidAt)} · {p.method}</span><span className="text-emerald-700">{tk(p.amount)}</span></li>)}</ul>}
@@ -194,12 +212,16 @@ export function MyOrders() {
                   </div>
                   {/* Once it is an order there is something worth keeping, so there is a copy
                       to keep. The browser's own print dialog saves it as a PDF. */}
-                  {ORDERED.includes(e.status) && (
-                    <button type="button" onClick={() => setSheet(e)}
-                      className="mt-3 rounded-md border border-[#d9be9b] px-4 py-2 text-sm font-semibold text-[#9b5528] transition hover:bg-[#faf3ea]">
-                      {L("Download / print my order (PDF)", "আমার অর্ডার ডাউনলোড / প্রিন্ট (PDF)")}
-                    </button>
-                  )}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {ORDERED.includes(e.status) && (
+                      <button type="button" onClick={() => setSheet(e)}
+                        className="rounded-md border border-[#d9be9b] px-4 py-2 text-sm font-semibold text-[#9b5528] transition hover:bg-[#faf3ea]">
+                        {L("Download / print my order (PDF)", "আমার অর্ডার ডাউনলোড / প্রিন্ট (PDF)")}
+                      </button>
+                    )}
+                    {/* A question about this door goes to the shop with its number already in it. */}
+                    {e.status !== "CANCELLED" && <ContactShop shop={shop} about={e.estimateNo} L={L} compact />}
+                  </div>
                 </div>
               </article>
             );

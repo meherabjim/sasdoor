@@ -9,7 +9,8 @@ type F = [key: string, label: string, hint: string];
 const GROUPS: { title: string; about: string; fields: F[] }[] = [
   { title: "1. Wood calculation", about: "These values decide how much wood (CFT) a door needs in the Designer.", fields: [
     ["doorThicknessInch", "Door thickness (inch)", "Thicker door = more wood"],
-    ["wastagePercent", "Wastage %", "Wood lost while cutting is added"],
+    ["wastagePercent", "Wastage %", "Offcuts, knots, splits and joints. Carved doors often lose 20–30% — check what your workshop really throws out"],
+    ["planingAllowanceInch", "Planing allowance (inch)", "Thickness the planer takes off a rough plank (e.g. 0.25). 0 if you buy timber at finished size"],
     ["frameWidthInch", "Frame width (inch)", "Used when \"With frame\" is ticked"],
     ["frameThicknessInch", "Frame thickness (inch)", "Used when \"With frame\" is ticked"],
   ] },
@@ -42,8 +43,12 @@ export default function SettingsPage() {
     ["companyName", "companyPhone", "companyAddress"].forEach((k) => (body[k] = f[k] || (k === "companyName" ? "SAS DOOR" : null)));
     if (await run(() => api.put("/api/admin/settings", body))) reload();
   };
-  // live example: single 7' x 3' with chowkath
-  const door = 7 * 3 * (num(f.doorThicknessInch) / 12), frame = (2 * 7 + 3) * (num(f.frameWidthInch) / 12) * (num(f.frameThicknessInch) / 12);
+  // live example: single 7' x 3' with chowkath - the same sums as backend lib/estimateCalc.ts
+  const plane = num(f.planingAllowanceInch);
+  const fw = num(f.frameWidthInch) / 12;
+  const door = 7 * 3 * ((num(f.doorThicknessInch) + plane) / 12);
+  // posts run the height plus the head they carry; the head spans the opening plus both posts
+  const frame = (2 * (7 + fw) + (3 + 2 * fw)) * ((num(f.frameWidthInch) + plane) / 12) * ((num(f.frameThicknessInch) + plane) / 12);
   const total = (door + frame) * (1 + num(f.wastagePercent) / 100);
 
   return (
@@ -53,8 +58,8 @@ export default function SettingsPage() {
         <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#a0712a]" />
         <div>
           <b>Example (with current values):</b> Single door 7&apos; × 3&apos; with frame →
-          door {fmtNum(door)} CFT + frame {fmtNum(frame)} CFT + {fmtNum(f.wastagePercent, 1)}% wastage = <b className="font-mono">{fmtNum(total)} CFT</b> of wood.
-          This is multiplied by the stock selling price per CFT to get the wood price.
+          door {fmtNum(door)} CFT + frame {fmtNum(frame)} CFT{plane > 0 ? ` (counted at +${fmtNum(plane, 2)}" for planing)` : ""} + {fmtNum(f.wastagePercent, 1)}% wastage = <b className="font-mono">{fmtNum(total)} CFT</b> of wood.
+          This is multiplied by the stock selling price per CFT to get the wood price, and the same CFT leaves stock when the order is confirmed.
         </div>
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
